@@ -110,7 +110,13 @@ class StackableDB : public DB {
     override {
       return db_->Write(opts, updates);
   }
-
+    ////metrics scanner for LinDB start
+    using DB::NewMetricsScanner;
+    virtual MetricsScanner* NewMetricsScanner(const ReadOptions& options,
+                                              ColumnFamilyHandle* column_family) override{
+      return db_->NewMetricsScanner(options, column_family);
+    }
+    ////metrics scanner for LinDB end
   using DB::NewIterator;
   virtual Iterator* NewIterator(const ReadOptions& opts,
                                 ColumnFamilyHandle* column_family) override {
@@ -123,7 +129,6 @@ class StackableDB : public DB {
       std::vector<Iterator*>* iterators) override {
     return db_->NewIterators(options, column_families, iterators);
   }
-
 
   virtual const Snapshot* GetSnapshot() override {
     return db_->GetSnapshot();

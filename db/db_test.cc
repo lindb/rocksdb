@@ -259,6 +259,7 @@ TEST_F(DBTest, CompactedDB) {
   Reopen(options);
   // 1 L0 file, use CompactedDB if max_open_files = -1
   ASSERT_OK(Put("aaa", DummyString(kFileSize / 2, '1')));
+
   Flush();
   Close();
   ASSERT_OK(ReadOnlyReopen(options));
@@ -2628,6 +2629,14 @@ class ModelDB : public DB {
     batch.Merge(cf, k, v);
     return Write(o, &batch);
   }
+
+    ////metrics scanner for LinDB start
+    using DB::NewMetricsScanner;
+    virtual MetricsScanner* NewMetricsScanner(const ReadOptions& options,
+                                              ColumnFamilyHandle* column_family) override{
+      return nullptr;
+    }
+    ////metrics scanner for LinDB end
   using DB::Get;
   virtual Status Get(const ReadOptions& options, ColumnFamilyHandle* cf,
                      const Slice& key, std::string* value) override {

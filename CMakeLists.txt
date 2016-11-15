@@ -255,6 +255,7 @@ set(SOURCES
         db/db_impl_readonly.cc
         db/db_info_dumper.cc
         db/db_iter.cc
+        db/metrics_scanner.cc
         db/event_helpers.cc
         db/external_sst_file_ingestion_job.cc
         db/experimental.cc
@@ -397,6 +398,8 @@ set(SOURCES
         utilities/memory/memory_util.cc
         utilities/merge_operators/string_append/stringappend.cc
         utilities/merge_operators/string_append/stringappend2.cc
+        utilities/merge_operators/PointMergeOperator.cc
+        utilities/merge_operators/PointMergeOperatorV2.cc
         utilities/merge_operators/put.cc
         utilities/merge_operators/max.cc
         utilities/merge_operators/uint64add.cc

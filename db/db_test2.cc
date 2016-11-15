@@ -58,6 +58,9 @@ TEST_P(PrefixFullBloomWithReverseComparator,
   if (bbto.block_cache) {
     bbto.block_cache->EraseUnRefEntries();
   }
+     MetricsScanner* scanner =  db_->NewMetricsScanner(ReadOptions());
+   Slice slice =    scanner->doScan();
+      ASSERT_EQ("3", slice.ToString());
 
   unique_ptr<Iterator> iter(db_->NewIterator(ReadOptions()));
   iter->Seek("bar345");

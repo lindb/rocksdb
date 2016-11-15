@@ -1202,7 +1202,14 @@ jlong Java_org_rocksdb_RocksDB_iterator__JJ(
   return rocksdb_iterator_helper(db, read_options,
       nullptr);
 }
-
+/////metrics scanner start
+jlong Java_org_rocksdb_RocksDB_metricsScanner(
+        JNIEnv* env, jobject jdb, jlong db_handle) {
+  auto db = reinterpret_cast<rocksdb::DB*>(db_handle);
+  rocksdb::MetricsScanner* scanner = db->NewMetricsScanner(rocksdb::ReadOptions());
+  return reinterpret_cast<jlong>(scanner);
+}
+/////metrics scanner end
 /*
  * Class:     org_rocksdb_RocksDB
  * Method:    iteratorCF

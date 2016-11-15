@@ -38,6 +38,7 @@
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/transaction_log.h"
 #include "rocksdb/write_buffer_manager.h"
+#include "rocksdb/metrics_scanner.h"
 #include "table/scoped_arena_iterator.h"
 #include "util/autovector.h"
 #include "util/db_options.h"
@@ -114,6 +115,11 @@ class DBImpl : public DB {
   using DB::NewIterator;
   virtual Iterator* NewIterator(const ReadOptions& options,
                                 ColumnFamilyHandle* column_family) override;
+    ////metrics scanner for LinDB start
+    using DB::NewMetricsScanner;
+    virtual MetricsScanner* NewMetricsScanner(const ReadOptions& options,
+                                  ColumnFamilyHandle* column_family) override;
+    ////metrics scanner for LinDB end
   virtual Status NewIterators(
       const ReadOptions& options,
       const std::vector<ColumnFamilyHandle*>& column_families,

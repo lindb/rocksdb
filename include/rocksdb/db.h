@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <vector>
 #include "rocksdb/iterator.h"
+#include "rocksdb/metrics_scanner.h"
 #include "rocksdb/listener.h"
 #include "rocksdb/metadata.h"
 #include "rocksdb/options.h"
@@ -321,6 +322,14 @@ class DB {
   virtual Iterator* NewIterator(const ReadOptions& options) {
     return NewIterator(options, DefaultColumnFamily());
   }
+    //metrics scanner start for LinDB
+    virtual MetricsScanner* NewMetricsScanner(const ReadOptions& options,
+                                  ColumnFamilyHandle* column_family) = 0;
+    virtual MetricsScanner* NewMetricsScanner(const ReadOptions& options) {
+      return NewMetricsScanner(options, DefaultColumnFamily());
+    }
+    //metrics scanner end for LinDB
+
   // Returns iterators from a consistent database state across multiple
   // column families. Iterators are heap allocated and need to be deleted
   // before the db is deleted

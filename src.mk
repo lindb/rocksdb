@@ -36,6 +36,7 @@ LIB_SOURCES =                                                   \
   db/memtable_list.cc                                           \
   db/merge_helper.cc                                            \
   db/merge_operator.cc                                          \
+  db/metrics_scanner.cc                                         \
   db/repair.cc                                                  \
   db/snapshot_impl.cc                                           \
   db/table_cache.cc                                             \
@@ -162,6 +163,8 @@ LIB_SOURCES =                                                   \
   utilities/merge_operators/max.cc                              \
   utilities/merge_operators/string_append/stringappend2.cc      \
   utilities/merge_operators/string_append/stringappend.cc       \
+  utilities/merge_operators/PointMergeOperator.cc               \
+  utilities/merge_operators/PointMergeOperatorV2.cc             \
   utilities/merge_operators/uint64add.cc                        \
   utilities/option_change_migration/option_change_migration.cc  \
   utilities/options/options_util.cc                             \
@@ -339,6 +342,7 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/loggerjnicallback.cc                          \
   java/rocksjni/memtablejni.cc                                \
   java/rocksjni/merge_operator.cc                             \
+  java/rocksjni/metrics_scanner.cc                            \
   java/rocksjni/options.cc                                    \
   java/rocksjni/ratelimiterjni.cc                             \
   java/rocksjni/remove_emptyvalue_compactionfilterjni.cc      \

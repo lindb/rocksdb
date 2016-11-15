@@ -16,6 +16,7 @@ set(JNI_NATIVE_SOURCES
         rocksjni/loggerjnicallback.cc
         rocksjni/memtablejni.cc
         rocksjni/merge_operator.cc
+        rocksjni/metrics_scanner.cc
         rocksjni/options.cc
         rocksjni/ratelimiterjni.cc
         rocksjni/remove_emptyvalue_compactionfilterjni.cc
@@ -61,6 +62,7 @@ set(NATIVE_JAVA_CLASSES
         org.rocksdb.HashSkipListMemTableConfig
         org.rocksdb.Logger
         org.rocksdb.MergeOperator
+        org.rocksdb.MetricsScanner
         org.rocksdb.Options
         org.rocksdb.PlainTableConfig
         org.rocksdb.RateLimiter
