@@ -1451,6 +1451,10 @@ public class RocksDB extends RocksObject {
         readOptions.nativeHandle_));
   }
 
+  public MetricsScanner newMetricsScanner() {
+    return new MetricsScanner(this, metricsScanner(nativeHandle_));
+  }
+
    /**
    * <p>Return a handle to the current DB state. Iterators created with
    * this handle will all observe a stable snapshot of the current DB
@@ -1799,7 +1803,7 @@ public class RocksDB extends RocksObject {
   public void compactRange(final ColumnFamilyHandle columnFamilyHandle)
       throws RocksDBException {
     compactRange(nativeHandle_, false, -1, 0,
-        columnFamilyHandle.nativeHandle_);
+            columnFamilyHandle.nativeHandle_);
   }
 
   /**
@@ -2263,6 +2267,7 @@ public class RocksDB extends RocksObject {
   protected native long getLongProperty(long nativeHandle, long cfHandle,
       String property, int propertyLength) throws RocksDBException;
   protected native long iterator(long handle);
+  protected native long metricsScanner(long handle);
   protected native long iterator(long handle, long readOptHandle);
   protected native long iteratorCF(long handle, long cfHandle);
   protected native long iteratorCF(long handle, long cfHandle,
