@@ -72,6 +72,7 @@
 #include "rocksdb/version.h"
 #include "rocksdb/wal_filter.h"
 #include "rocksdb/write_buffer_manager.h"
+#include "rocksdb/metrics_scanner.h"
 #include "table/block.h"
 #include "table/block_based_table_factory.h"
 #include "table/merger.h"
@@ -4165,6 +4166,13 @@ bool DBImpl::KeyMayExist(const ReadOptions& read_options,
   // In this case, key may still exist in the table.
   return s.ok() || s.IsIncomplete();
 }
+
+    //// new metrics scanner for LinDB start
+        MetricsScanner* DBImpl::NewMetricsScanner(ReadOptions& read_options,
+                                      ColumnFamilyHandle* column_family) {
+            return NewMetricsScannerImpl(this, read_options);
+        }
+    //// new metrics scanner for LinDB end
 
 Iterator* DBImpl::NewIterator(const ReadOptions& read_options,
                               ColumnFamilyHandle* column_family) {

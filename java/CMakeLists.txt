@@ -11,6 +11,7 @@ set(JNI_NATIVE_SOURCES
         rocksjni/env.cc
         rocksjni/filter.cc
         rocksjni/iterator.cc
+        rocksjni/metrics_scanner.cc
         rocksjni/loggerjnicallback.cc
         rocksjni/memtablejni.cc
         rocksjni/merge_operator.cc
@@ -65,6 +66,7 @@ set(NATIVE_JAVA_CLASSES
         org.rocksdb.RocksDB
         org.rocksdb.RocksEnv
         org.rocksdb.RocksIterator
+        org.rocksdb.MetricsScanner
         org.rocksdb.RocksMemEnv
         org.rocksdb.SkipListMemTableConfig
         org.rocksdb.Slice

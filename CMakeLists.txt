@@ -117,6 +117,7 @@ set(SOURCES
         db/db_impl_readonly.cc
         db/db_info_dumper.cc
         db/db_iter.cc
+        db/metrics_scanner.cc
         db/event_helpers.cc
         db/experimental.cc
         db/filename.cc
@@ -264,6 +265,8 @@ set(SOURCES
         utilities/merge_operators/put.cc
         utilities/merge_operators/max.cc
         utilities/merge_operators/uint64add.cc
+        utilities/merge_operators/PointMergeOperator.cc
+        utilities/merge_operators/PointMergeOperatorV2.cc
         utilities/option_change_migration/option_change_migration.cc
         utilities/options/options_util.cc
         utilities/persistent_cache/persistent_cache_tier.cc

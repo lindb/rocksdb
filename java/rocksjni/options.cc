@@ -2136,7 +2136,7 @@ void Java_org_rocksdb_ColumnFamilyOptions_useCappedPrefixExtractor(
 }
 
 /*
- * Method:    setTableFactory
+ * Method:    setTableFactorsetPrefixSameAsStarty
  * Signature: (JJ)V
  */
 void Java_org_rocksdb_ColumnFamilyOptions_setTableFactory(

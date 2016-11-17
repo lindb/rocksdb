@@ -117,6 +117,11 @@ class DBImpl : public DB {
       const ReadOptions& options,
       const std::vector<ColumnFamilyHandle*>& column_families,
       std::vector<Iterator*>* iterators) override;
+ ////metrics scanner for LinDB start
+  using DB::NewMetricsScanner;
+        virtual MetricsScanner* NewMetricsScanner(ReadOptions& options,
+                                      ColumnFamilyHandle* column_family) override;
+    ////metrics scanner for LinDB end
   virtual const Snapshot* GetSnapshot() override;
   virtual void ReleaseSnapshot(const Snapshot* snapshot) override;
   using DB::GetProperty;

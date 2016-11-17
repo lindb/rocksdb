@@ -1169,7 +1169,13 @@ public class RocksDB extends RocksObject {
         readOptions.nativeHandle_));
   }
 
-   /**
+  ///////////////metrics scanner start/////////////////////
+  public MetricsScanner newMetricsScanner(final ReadOptions readOptions) {
+    return new MetricsScanner(this, metricsScanner(nativeHandle_,readOptions.nativeHandle_));
+  }
+  ///////////////metrics scanner end/////////////////////
+
+  /**
    * <p>Return a handle to the current DB state. Iterators created with
    * this handle will all observe a stable snapshot of the current DB
    * state. The caller must call ReleaseSnapshot(result) when the
@@ -1862,6 +1868,7 @@ public class RocksDB extends RocksObject {
       String property, int propertyLength) throws RocksDBException;
   protected native long iterator(long handle);
   protected native long iterator(long handle, long readOptHandle);
+  protected native long metricsScanner(long handle, long readOptHandle);
   protected native long iteratorCF(long handle, long cfHandle);
   protected native long iteratorCF(long handle, long cfHandle,
       long readOptHandle);

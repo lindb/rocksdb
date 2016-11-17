@@ -19,6 +19,7 @@ LIB_SOURCES =                                                   \
   db/db_impl_add_file.cc                                        \
   db/db_info_dumper.cc                                          \
   db/db_iter.cc                                                 \
+  db/metrics_scanner.cc                                         \
   db/experimental.cc                                            \
   db/event_helpers.cc                                           \
   db/file_indexer.cc                                            \
@@ -131,6 +132,8 @@ LIB_SOURCES =                                                   \
   utilities/merge_operators/string_append/stringappend2.cc      \
   utilities/merge_operators/string_append/stringappend.cc       \
   utilities/merge_operators/uint64add.cc                        \
+  utilities/merge_operators/PointMergeOperator.cc               \
+  utilities/merge_operators/PointMergeOperatorV2.cc             \
   utilities/option_change_migration/option_change_migration.cc  \
   utilities/options/options_util.cc                             \
   utilities/persistent_cache/persistent_cache_tier.cc           \
@@ -318,6 +321,7 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/env.cc                                        \
   java/rocksjni/filter.cc                                     \
   java/rocksjni/iterator.cc                                   \
+  java/rocksjni/metrics_scanner.cc                            \
   java/rocksjni/loggerjnicallback.cc                          \
   java/rocksjni/memtablejni.cc                                \
   java/rocksjni/merge_operator.cc                             \

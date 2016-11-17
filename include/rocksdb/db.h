@@ -17,6 +17,7 @@
 #include <vector>
 #include "rocksdb/immutable_options.h"
 #include "rocksdb/iterator.h"
+#include "rocksdb/metrics_scanner.h"
 #include "rocksdb/listener.h"
 #include "rocksdb/metadata.h"
 #include "rocksdb/options.h"
@@ -302,6 +303,13 @@ class DB {
                            std::string* value, bool* value_found = nullptr) {
     return KeyMayExist(options, DefaultColumnFamily(), key, value, value_found);
   }
+    //metrics scanner start for LinDB
+    virtual MetricsScanner* NewMetricsScanner(ReadOptions& options,
+                                      ColumnFamilyHandle* column_family) = 0;
+       virtual MetricsScanner* NewMetricsScanner(ReadOptions& options) {
+           return NewMetricsScanner(options, DefaultColumnFamily());
+       }
+    //metrics scanner end for LinDB
 
   // Return a heap-allocated iterator over the contents of the database.
   // The result of NewIterator() is initially invalid (caller must
