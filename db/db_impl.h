@@ -121,6 +121,9 @@ class DBImpl : public DB {
   using DB::NewMetricsScanner;
         virtual MetricsScanner* NewMetricsScanner(ReadOptions& options,
                                       ColumnFamilyHandle* column_family) override;
+  using DB::NewMetricsGroupByScanner;
+    virtual MetricsGroupByScanner* NewMetricsGroupByScanner(ReadOptions& options,
+                                              ColumnFamilyHandle* column_family) override;
     ////metrics scanner for LinDB end
   virtual const Snapshot* GetSnapshot() override;
   virtual void ReleaseSnapshot(const Snapshot* snapshot) override;

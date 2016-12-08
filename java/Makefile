@@ -30,6 +30,7 @@ NATIVE_JAVA_CLASSES = org.rocksdb.AbstractCompactionFilter\
 	org.rocksdb.RocksEnv\
 	org.rocksdb.RocksIterator\
 	org.rocksdb.MetricsScanner\
+	org.rocksdb.MetricsGroupByScanner\
 	org.rocksdb.RocksMemEnv\
 	org.rocksdb.SkipListMemTableConfig\
 	org.rocksdb.Slice\

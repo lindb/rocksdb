@@ -10,152 +10,92 @@
 #include "include/org_rocksdb_MetricsScanner.h"
 #include "rocksjni/portal.h"
 #include "rocksdb/metrics_scanner.h"
+
 /*
  * Class:     org_rocksdb_MetricsScanner
- * Method:    setMetrics
+ * Method:    start
  * Signature: (JI)V
  */
-void Java_org_rocksdb_MetricsScanner_setMetrics
-        (JNIEnv *env, jobject jobj, jlong handle, jint metricsId) {
+void Java_org_rocksdb_MetricsScanner_metric
+        (JNIEnv *env, jobject jobj, jlong handle, jint metric) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->metricsId = metricsId;
+    scanner->metric = metric;
 }
 
 /*
  * Class:     org_rocksdb_MetricsScanner
- * Method:    setTime
+ * Method:    startHour
  * Signature: (JI)V
  */
-void Java_org_rocksdb_MetricsScanner_setTime
-        (JNIEnv *env, jobject jobj, jlong handle, jint time) {
+void Java_org_rocksdb_MetricsScanner_startHour
+        (JNIEnv *env, jobject jobj, jlong handle, jint startHour) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->time = time;
+    scanner->startHour = startHour;
 }
 
 /*
  * Class:     org_rocksdb_MetricsScanner
- * Method:    enableCount
- * Signature: (JZ)V
- */
-void Java_org_rocksdb_MetricsScanner_enableCount
-        (JNIEnv *env, jobject jobj, jlong handle, jboolean enable) {
-    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->countEnable = enable;
-}
-
-/*
- * Class:     org_rocksdb_MetricsScanner
- * Method:    enableSum
- * Signature: (JZ)V
- */
-void Java_org_rocksdb_MetricsScanner_enableSum
-        (JNIEnv *env, jobject jobj, jlong handle, jboolean enable) {
-    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->sumEnable = enable;
-}
-
-/*
- * Class:     org_rocksdb_MetricsScanner
- * Method:    enableMin
- * Signature: (JZ)V
- */
-void Java_org_rocksdb_MetricsScanner_enableMin
-        (JNIEnv *env, jobject jobj, jlong handle, jboolean enable) {
-    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->minEnable = enable;
-}
-
-/*
- * Class:     org_rocksdb_MetricsScanner
- * Method:    enableMax
- * Signature: (JZ)V
- */
-void Java_org_rocksdb_MetricsScanner_enableMax
-        (JNIEnv *env, jobject jobj, jlong handle, jboolean enable) {
-    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->maxEnable = enable;
-}
-
-/*
- * Class:     org_rocksdb_MetricsScanner
- * Method:    setStartSlot
+ * Method:    endHour
  * Signature: (JI)V
  */
-void Java_org_rocksdb_MetricsScanner_setSlotRange
-        (JNIEnv *env, jobject jobj, jlong handle, jint startSlot,jint endSlot) {
+void Java_org_rocksdb_MetricsScanner_endHour
+        (JNIEnv *env, jobject jobj, jlong handle, jint endHour) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->startSlot = startSlot;
-    scanner->endSlot = endSlot;
+    scanner->endHour = endHour;
 }
 
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    maxPointCount
+ * Signature: (JI)V
+ */
+void Java_org_rocksdb_MetricsScanner_maxPointCount
+        (JNIEnv *env, jobject jobj, jlong handle, jint maxPointCount) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    scanner->pointCount = maxPointCount;
+}
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    doScan
  * Signature: (JI)V
  */
-void Java_org_rocksdb_MetricsScanner_doScan
+void Java_org_rocksdb_MetricsScanner_next
         (JNIEnv *env, jobject jobj, jlong handle) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->doScan();
+    scanner->next();
 }
 
 /*
  * Class:     org_rocksdb_MetricsScanner
- * Method:    getCountResult
- * Signature: (J)[B
+ * Method:    hasNext
+ * Signature: (J)Z
  */
-jbyteArray Java_org_rocksdb_MetricsScanner_getCountResult
+jboolean Java_org_rocksdb_MetricsScanner_hasNext
         (JNIEnv *env, jobject jobj, jlong handle) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    rocksdb::Slice value_slice = scanner->getCountResult();
-    jsize size = static_cast<jsize>(value_slice.size());
-    jbyteArray jkeyValue = env->NewByteArray(size);
-    env->SetByteArrayRegion(jkeyValue, 0, size,
-                            reinterpret_cast<const jbyte *>(value_slice.data()));
-    return jkeyValue;
+    return scanner->hasNext();
 }
 
 /*
  * Class:     org_rocksdb_MetricsScanner
- * Method:    getSumResult
- * Signature: (J)[B
+ * Method:    getCurrentHour
+ * Signature: (J)I
  */
-jbyteArray Java_org_rocksdb_MetricsScanner_getSumResult
+jint Java_org_rocksdb_MetricsScanner_getCurrentHour
         (JNIEnv *env, jobject jobj, jlong handle) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    rocksdb::Slice value_slice = scanner->getSumResult();
-    jsize size = static_cast<jsize>(value_slice.size());
-    jbyteArray jkeyValue = env->NewByteArray(size);
-    env->SetByteArrayRegion(jkeyValue, 0, size,
-                            reinterpret_cast<const jbyte *>(value_slice.data()));
-    return jkeyValue;
+    return scanner->getCurrentHour();
 }
 
 /*
  * Class:     org_rocksdb_MetricsScanner
- * Method:    getMinResult
+ * Method:    getResultSet
  * Signature: (J)[B
  */
-jbyteArray Java_org_rocksdb_MetricsScanner_getMinResult
+jbyteArray Java_org_rocksdb_MetricsScanner_getResultSet
         (JNIEnv *env, jobject jobj, jlong handle) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    rocksdb::Slice value_slice = scanner->getMinResult();
-    jsize size = static_cast<jsize>(value_slice.size());
-    jbyteArray jkeyValue = env->NewByteArray(size);
-    env->SetByteArrayRegion(jkeyValue, 0, size,
-                            reinterpret_cast<const jbyte *>(value_slice.data()));
-    return jkeyValue;
-}
-
-/*
- * Class:     org_rocksdb_MetricsScanner
- * Method:    getMaxResult
- * Signature: (J)[B
- */
-jbyteArray Java_org_rocksdb_MetricsScanner_getMaxResult
-        (JNIEnv *env, jobject jobj, jlong handle) {
-    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    rocksdb::Slice value_slice = scanner->getMaxResult();
+    rocksdb::Slice value_slice = scanner->getResultSet();
     jsize size = static_cast<jsize>(value_slice.size());
     jbyteArray jkeyValue = env->NewByteArray(size);
     env->SetByteArrayRegion(jkeyValue, 0, size,

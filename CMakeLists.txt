@@ -118,6 +118,7 @@ set(SOURCES
         db/db_info_dumper.cc
         db/db_iter.cc
         db/metrics_scanner.cc
+        db/metrics_groupby_scanner.cc
         db/event_helpers.cc
         db/experimental.cc
         db/filename.cc

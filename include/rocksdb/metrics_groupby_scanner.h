@@ -4,7 +4,13 @@
 
 #ifndef ROCKSDB_METRICS_GROUPBY_SCANNER_H
 #define ROCKSDB_METRICS_GROUPBY_SCANNER_H
-/*
+
+#include <vector>
+#include "string"
+#include "rocksdb/options.h"
+#include "rocksdb/db.h"
+#include "rocksdb/slice.h"
+
 namespace rocksdb {
     class MetricsGroupByScanner {
     public:
@@ -14,36 +20,32 @@ namespace rocksdb {
 
         virtual ~MetricsGroupByScanner() {}
 
-        const Slice validation_error = "1";
         char point_type_sum = 1;
         char point_type_count = 2;
         char point_type_min = 3;
         char point_type_max = 4;
-        int32_t metricsId = -1;
-        int32_t time = -1;
-        bool countEnable = false;
-        bool sumEnable = false;
-        bool minEnable = false;
-        bool maxEnable = false;
-        int32_t startSlot = -1;
-        int32_t endSlot = -1;
+
+        uint32_t metric = 0;
+        uint32_t startHour = 0;
+        uint32_t endHour = 0;
+
+        uint32_t pointCount = 60;
+
+        virtual void addGroupBy(uint32_t tagNameId, Slice &target) = 0;
 
         virtual bool hasNext() = 0;
 
         virtual void next() = 0;
 
+        virtual int32_t getCurrentHour() = 0;
+
+        virtual Slice getGroupBy() = 0;
+
         //for agg result
-        virtual Slice getCountResult()  = 0;
-
-        virtual Slice getSumResult()  = 0;
-
-        virtual Slice getMinResult()  = 0;
-
-        virtual Slice getMaxResult()  = 0;
+        virtual Slice getResultSet()  = 0;
     };
 
     // Return an empty iterator (yields nothing).
-    extern MetricsGroupByScanner *NewMetricsGroupByScannerImpl(DB *db, const ReadOptions &read_options);
-}  // namespace rocksd
-*/
+    extern MetricsGroupByScanner *NewMetricsGroupByScannerImpl(DB *db, ReadOptions &read_options);
+}  // namespace rocksdb
 #endif //ROCKSDB_METRICS_GROUPBY_SCANNER_H

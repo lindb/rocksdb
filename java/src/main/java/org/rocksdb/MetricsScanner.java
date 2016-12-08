@@ -7,92 +7,59 @@ package org.rocksdb;
  */
 public class MetricsScanner extends RocksObject {
     private RocksDB rocksDB;
-    private int metricsId = -1;
-    private int time = -1;
-    private int startSlot = -1;
-    private int endSlot = -1;
-    private boolean count = false;
-    private boolean sum = false;
-    private boolean min = false;
-    private boolean max = false;
 
-    public MetricsScanner(RocksDB rocksDB, long nativeHandle) {
+    private int metric = -1;
+    private int startHour = -1;
+    private int endHour = -1;
+    private int maxPointCount;
+
+    public MetricsScanner(RocksDB rocksDB, int maxPointCount, long nativeHandle) {
         super(nativeHandle);
         this.rocksDB = rocksDB;
+        this.maxPointCount = maxPointCount;
     }
 
-    public void setMetricsId(int metricsId) {
-        this.metricsId = metricsId;
+    public void setMetric(int metric) {
+        this.metric = metric;
     }
 
-    public void setTime(int time) {
-        this.time = time;
+    public void setHourRange(int startHour,int endHour) {
+        this.startHour = startHour;
+        this.endHour = endHour;
     }
 
-    public void enableCount(boolean enable) {
-        this.count = enable;
-    }
-
-    public void enableSum(boolean enable) {
-        this.sum = enable;
-    }
-
-    public void enableMin(boolean enable) {
-        this.min = enable;
-    }
-
-    public void enableMax(boolean enable) {
-        this.max = enable;
-    }
-
-    public void setSlotRange(int startSlot, int endSlot) {
-        this.startSlot = startSlot;
-        this.endSlot = endSlot;
-    }
-
-    public void doScan() throws RocksDBException {
-        if (metricsId == -1) {
-            throw new RocksDBException("Metrics id cannot be null.");
+    public void next() throws RocksDBException {
+        if (metric == -1) {
+            throw new RocksDBException("Metric cannot be empty.");
         }
-        if (time == -1) {
-            throw new RocksDBException("Time cannot be null.");
+        if (startHour == -1) {
+            throw new RocksDBException("Start hour cannot be empty.");
+        }
+        if (endHour == -1) {
+            throw new RocksDBException("End hour cannot be empty.");
         }
 
-        if (!count && !sum && !min && !max) {
-            throw new RocksDBException("Aggregator function cannot be null.");
+        if (maxPointCount <= 0) {
+            throw new RocksDBException("Max point count must be > 0.");
         }
-        if (startSlot == -1 || endSlot == -1) {
-            throw new RocksDBException("Slot range invalid.");
-        }
+        maxPointCount(nativeHandle_, maxPointCount);
+        metric(nativeHandle_, metric);
+        startHour(nativeHandle_, startHour);
+        endHour(nativeHandle_, endHour);
 
-        setMetrics(nativeHandle_, metricsId);
-
-        setTime(nativeHandle_, time);
-
-        setSlotRange(nativeHandle_, startSlot,endSlot);
-
-        enableCount(nativeHandle_, count);
-        enableSum(nativeHandle_, sum);
-        enableMin(nativeHandle_, min);
-        enableMax(nativeHandle_, max);
-
-        doScan(nativeHandle_);
+        next(nativeHandle_);
     }
 
-    public byte[] getCountResult() {
-        return getCountResult(nativeHandle_);
+    public boolean hasNext() {
+        return hasNext(nativeHandle_);
     }
 
-    public byte[] getSumResult() {
-        return getSumResult(nativeHandle_);
+    public int getCurrentHour(){
+        return getCurrentHour(nativeHandle_);
     }
 
-    public byte[] getMinResult() {
-        return getMinResult(nativeHandle_);
-    }
-
-    public byte[] getMaxResult() {
-        return getMaxResult(nativeHandle_);
+    public byte[] getResultSet() {
+        return getResultSet(nativeHandle_);
     }
 
     public void close() {
@@ -106,29 +73,21 @@ public class MetricsScanner extends RocksObject {
         }
     }
 
-    private native void setMetrics(long handle, int metrics);
+    private native void maxPointCount(long handle, int maxPointCount);
 
-    private native void setTime(long handle, int metrics);
+    private native void metric(long handle, int metric);
 
-    private native void enableCount(long handle, boolean enable);
+    private native void startHour(long handle, int startHour);
 
-    private native void enableSum(long handle, boolean enable);
+    private native void endHour(long handle, int endHour);
 
-    private native void enableMin(long handle, boolean enable);
+    private native void next(long handle);
 
-    private native void enableMax(long handle, boolean enable);
+    private native boolean hasNext(long handle);
 
-    private native void setSlotRange(long handle, int startSlot,int endSlot);
+    private native int getCurrentHour(long handle);
 
-    private native void doScan(long handle);
-
-    private native byte[] getCountResult(long handle);
-
-    private native byte[] getSumResult(long handle);
-
-    private native byte[] getMinResult(long handle);
-
-    private native byte[] getMaxResult(long handle);
+    private native byte[] getResultSet(long handle);
 
     @Override
     protected final native void disposeInternal(final long handle);

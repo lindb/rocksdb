@@ -121,6 +121,11 @@ class StackableDB : public DB {
                                                   ColumnFamilyHandle* column_family) override{
               return db_->NewMetricsScanner(options, column_family);
         }
+    using DB::NewMetricsGroupByScanner;
+      virtual MetricsGroupByScanner* NewMetricsGroupByScanner(ReadOptions& options,
+                                              ColumnFamilyHandle* column_family) override{
+        return db_->NewMetricsGroupByScanner(options, column_family);
+    }
     ////metrics scanner for LinDB end
 
   using DB::NewIterator;

@@ -20,6 +20,7 @@ LIB_SOURCES =                                                   \
   db/db_info_dumper.cc                                          \
   db/db_iter.cc                                                 \
   db/metrics_scanner.cc                                         \
+  db/metrics_groupby_scanner.cc                                 \
   db/experimental.cc                                            \
   db/event_helpers.cc                                           \
   db/file_indexer.cc                                            \
@@ -322,6 +323,7 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/filter.cc                                     \
   java/rocksjni/iterator.cc                                   \
   java/rocksjni/metrics_scanner.cc                            \
+  java/rocksjni/metrics_groupby_scanner.cc                    \
   java/rocksjni/loggerjnicallback.cc                          \
   java/rocksjni/memtablejni.cc                                \
   java/rocksjni/merge_operator.cc                             \

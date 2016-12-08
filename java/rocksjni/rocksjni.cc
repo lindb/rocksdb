@@ -1063,6 +1063,13 @@ jlong Java_org_rocksdb_RocksDB_metricsScanner(
   rocksdb::MetricsScanner* scanner = db->NewMetricsScanner(read_options);
   return reinterpret_cast<jlong>(scanner);
 }
+jlong Java_org_rocksdb_RocksDB_metricsGroupByScanner(
+        JNIEnv* env, jobject jdb, jlong db_handle,jlong jread_options_handle) {
+  auto db = reinterpret_cast<rocksdb::DB*>(db_handle);
+  auto& read_options = *reinterpret_cast<rocksdb::ReadOptions*>(jread_options_handle);
+  rocksdb::MetricsGroupByScanner* scanner = db->NewMetricsGroupByScanner(read_options);
+  return reinterpret_cast<jlong>(scanner);
+}
 /////metrics scanner end
 
 /*

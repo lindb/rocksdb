@@ -18,6 +18,7 @@
 #include "rocksdb/immutable_options.h"
 #include "rocksdb/iterator.h"
 #include "rocksdb/metrics_scanner.h"
+#include "rocksdb/metrics_groupby_scanner.h"
 #include "rocksdb/listener.h"
 #include "rocksdb/metadata.h"
 #include "rocksdb/options.h"
@@ -309,6 +310,12 @@ class DB {
        virtual MetricsScanner* NewMetricsScanner(ReadOptions& options) {
            return NewMetricsScanner(options, DefaultColumnFamily());
        }
+
+    virtual MetricsGroupByScanner* NewMetricsGroupByScanner(ReadOptions& options,
+                                              ColumnFamilyHandle* column_family) = 0;
+    virtual MetricsGroupByScanner* NewMetricsGroupByScanner(ReadOptions& options) {
+        return NewMetricsGroupByScanner(options, DefaultColumnFamily());
+    }
     //metrics scanner end for LinDB
 
   // Return a heap-allocated iterator over the contents of the database.
