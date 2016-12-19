@@ -24,11 +24,16 @@ namespace rocksdb {
         char point_type_min = 3;
         char point_type_max = 4;
 
+        bool enableLog = false;
         uint32_t metric = 0;
-        uint32_t startHour = 0;
-        uint32_t endHour = 0;
+        int32_t startHour = 0;
+        int32_t endHour = 0;
 
         uint32_t pointCount = 60;
+
+        virtual void setTagFilter(Slice &target) = 0;
+
+        virtual void setGroupBy(Slice &target)  = 0;
 
         virtual void next()  = 0;
 
@@ -38,6 +43,8 @@ namespace rocksdb {
 
         //for agg result
         virtual Slice getResultSet()  = 0;
+
+        virtual Slice getGroupBy() = 0;
     };
 
     // Return an empty iterator (yields nothing).

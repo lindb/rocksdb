@@ -16,6 +16,17 @@
  * Method:    start
  * Signature: (JI)V
  */
+void Java_org_rocksdb_MetricsScanner_enableLog
+        (JNIEnv *env, jobject jobj, jlong handle, jboolean enableLog) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    scanner->enableLog = enableLog;
+}
+
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    start
+ * Signature: (JI)V
+ */
 void Java_org_rocksdb_MetricsScanner_metric
         (JNIEnv *env, jobject jobj, jlong handle, jint metric) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
@@ -54,6 +65,7 @@ void Java_org_rocksdb_MetricsScanner_maxPointCount
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->pointCount = maxPointCount;
 }
+
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    doScan
@@ -101,6 +113,57 @@ jbyteArray Java_org_rocksdb_MetricsScanner_getResultSet
     env->SetByteArrayRegion(jkeyValue, 0, size,
                             reinterpret_cast<const jbyte *>(value_slice.data()));
     return jkeyValue;
+}
+
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    getGroupBy
+ * Signature: (J)[B
+ */
+jbyteArray Java_org_rocksdb_MetricsScanner_getGroupBy
+        (JNIEnv *env, jobject jobj, jlong handle) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    rocksdb::Slice value_slice = scanner->getGroupBy();
+    jsize size = static_cast<jsize>(value_slice.size());
+    jbyteArray jkeyValue = env->NewByteArray(size);
+    env->SetByteArrayRegion(jkeyValue, 0, size,
+                            reinterpret_cast<const jbyte *>(value_slice.data()));
+    return jkeyValue;
+}
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    setTagFilters
+ * Signature: (JI[B)V
+ */
+void Java_org_rocksdb_MetricsScanner_setTagFilters
+        (JNIEnv *env, jobject jobj, jlong handler, jint jtarget_len, jbyteArray jtarget) {
+    auto *scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handler);
+
+    jbyte *target = env->GetByteArrayElements(jtarget, 0);
+    rocksdb::Slice target_slice(
+            reinterpret_cast<char *>(target), jtarget_len);
+
+    scanner->setTagFilter(target_slice);
+
+    env->ReleaseByteArrayElements(jtarget, target, JNI_ABORT);
+}
+
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    setGroupBy
+ * Signature: (JI[B)V
+ */
+void Java_org_rocksdb_MetricsScanner_setGroupBy
+        (JNIEnv *env, jobject jobj, jlong handler, jint jtarget_len, jbyteArray jtarget) {
+    auto *scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handler);
+
+    jbyte *target = env->GetByteArrayElements(jtarget, 0);
+    rocksdb::Slice target_slice(
+            reinterpret_cast<char *>(target), jtarget_len);
+
+    scanner->setGroupBy(target_slice);
+
+    env->ReleaseByteArrayElements(jtarget, target, JNI_ABORT);
 }
 
 /*

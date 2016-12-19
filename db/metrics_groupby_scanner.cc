@@ -9,11 +9,6 @@
 #include "rocksdb/db.h"
 #include "util/coding.h"
 
-typedef struct {
-    char value[4];
-} tagValue;
-
-
 namespace rocksdb {
     struct DataPoint {
         bool hasValue = false;
@@ -28,27 +23,22 @@ namespace rocksdb {
 
         Iterator *iter_ = nullptr;
         std::string seekKey = "";
-        std::string groupByKey = "";
-        std::string saveGroup = "";
 
-        uint32_t curTagNameId = 0;
-
-        size_t tagNamesIdLen;
-
-
-        std::vector<uint32_t> tagNamesId;
-        std::vector<std::string> groupBys;
-
-        std::vector<uint32_t> curGroupByKey;
+        std::vector<uint32_t> groupBy;
 
         bool hasValue = false;
-        bool newGroup = false;
 
         int metricLen = 0;
 
         int currentHour = 0;
+        uint32_t groupSize = 0;
+        uint32_t metric_ = 0;
 
         std::string resultSet_ = "";
+        std::string groupResult_ = "";
+
+        uint32_t *curGroupByKey = nullptr;
+        uint32_t *saveGroupByKey = nullptr;
 
         DataPoint *countPoints_ = nullptr;
         DataPoint *sumPoints_ = nullptr;
@@ -77,13 +67,30 @@ namespace rocksdb {
             if (minPoints_ != nullptr) {
                 delete[] minPoints_;
             }
+
+            if (curGroupByKey != nullptr) {
+                delete[] curGroupByKey;
+            }
+            if (saveGroupByKey != nullptr) {
+                delete[] saveGroupByKey;
+            }
         }
 
-        virtual void addGroupBy(uint32_t tagNameId, Slice &target) override {
-            tagNamesId.push_back(tagNameId);
-            std::string groupBy = "";
-            groupBy.append(target.data(), target.size());
-            groupBys.push_back(groupBy);
+        virtual void addGroupBy(uint32_t groupByCount, Slice &target) override {
+            if (curGroupByKey == nullptr) {
+                curGroupByKey = new uint32_t[groupByCount];
+            }
+            if (saveGroupByKey == nullptr) {
+                saveGroupByKey = new uint32_t[groupByCount];
+            }
+            groupSize = groupByCount;
+            for (uint32_t i = 0; i < groupSize; i++) {
+                uint32_t groupByTagName = 0;
+                GetVarint32(&target, &groupByTagName);
+                groupBy.push_back(groupByTagName);
+                curGroupByKey[i] = 0;
+                saveGroupByKey[i] = 0;
+            }
         }
 
         virtual bool hasNext() override {
@@ -92,16 +99,14 @@ namespace rocksdb {
 
         virtual void next() override {
             resultSet_.clear();
-            groupByKey.clear();
             currentHour = -1;
             hasValue = false;
-            newGroup = false;
             DBOptions options = db_->GetDBOptions();
             if (iter_ == nullptr) {
                 init();
                 if (seekKey.size() <= 0) {
                     Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics seek group by scanner do next: %s %d",
-                        Slice(seekKey).ToString(true).data(),seekKey.size() );
+                        Slice(seekKey).ToString(true).data(), seekKey.size());
                     return;
                 }
                 if (metricLen <= 0) {
@@ -110,91 +115,89 @@ namespace rocksdb {
                     return;
                 }
                 iter_ = db_->NewIterator(read_options_);
-                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics  do seek =|%s|",Slice(seekKey).ToString(true).data());
+                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics  do seek =|%s|",
+                    Slice(seekKey).ToString(true).data());
                 iter_->Seek(seekKey);
-                seekKey.clear();
             } else {
                 Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics  do next");
                 iter_->Next();
             }
 
-            Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics group by scanner do next: %d %d %s",
-                metric, tagNamesIdLen,iter_->Valid()?"true":"false");
+            Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics group by scanner do next: %d %s",
+                metric, iter_->Valid() ? "true" : "false");
+
+            bool needDump = false;
+            bool diff = false;//flag if current group key is different with save group key
             for (; iter_->Valid(); iter_->Next()) {
                 Slice key = iter_->key();
-
-                key.remove_prefix(metricLen);
+                GetVarint32(&key, &metric_);
+                if (metric != metric_) {
+                    break;
+                }
                 uint32_t hour = 0;
                 GetVarint32(&key, &hour);
 
-                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics key is: %s=%s %d %d %d",
-                    key.ToString(true).data(), Slice(seekKey).ToString(true).data(),startHour,hour,endHour);
                 //finish iterator, because hour > end hour
                 if (hour > endHour) {
                     break;
                 }
 
-
-                uint32_t tagNameId = 0;
-                GetVarint32(&key, &tagNameId);
-                if (curTagNameId != tagNameId) {
-                    int32_t idx = binarySearch(tagNameId);
-                    //not match group tag name, skip next tag name
-                    if (idx < 0) {
-                        PutVarint32Varint32(&seekKey, metric, startHour);
-                        PutVarint32(&seekKey, tagNameId + 1);
-                        iter_->Seek(seekKey);
-                        seekKey.clear();
-                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "skip metrics key is: %s=%s %d %d",
-                             Slice(seekKey).ToString(true).data(),idx);
-                        continue;
+                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics key is======: %s %d %d %d %d",
+                    iter_->key().ToString(true).data(), saveGroupByKey[0], startHour, hour, endHour);
+                size_t foundCount = 0;
+                for (uint32_t i = 0; i < groupSize; i++) {
+                    uint32_t tagName = 0;
+                    uint32_t tagValue = 0;
+                    while (key.size() > 0) {
+                        GetVarint32(&key, &tagName);
+                        GetVarint32(&key, &tagValue);
+                        if (tagName == groupBy[i]) {
+                            curGroupByKey[i] = tagValue;
+                            if (saveGroupByKey[i] != 0 && saveGroupByKey[i] != tagValue) {
+                                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics key is diff: %s=%s %d %d %d",
+                                    iter_->key().ToString(true).data(), Slice(groupResult_).ToString(true).data(), startHour, hour, endHour);
+                                diff = true;
+                            }
+                            foundCount++;
+                            break;
+                        }
                     }
-                    Slice groupBySlice = groupBys[idx];
-                    curGroupByKey.clear();
-                    while (groupBySlice.size() > 0) {
-                        uint32_t tagValueOffset =0;
-                        GetVarint32(&groupBySlice,&tagValueOffset);
-                        curGroupByKey.push_back(tagValueOffset);
+                    if (foundCount == groupSize) {
+                        break;
                     }
-                    curTagNameId = tagNameId;
                 }
-
-                hasValue = true;
+                if (foundCount != groupSize) {
+                    //not match reset diff flag
+                    diff = false;
+                    continue;
+                }
+                //set first group by key
+                if (saveGroupByKey[0] == 0) {
+                    for (uint32_t i = 0; i < groupSize; i++) {
+                        //exchange current group by to save group by for new
+                        saveGroupByKey[i] = curGroupByKey[i];
+                    }
+                }
+                //set first hour
                 if (currentHour == -1) {
                     currentHour = hour;
-                } else if (currentHour != hour) {
-                    dumpAllResult();
-                    newGroup = true;
                 }
 
-                tagValue *tag_values = (tagValue *) key.data();
-                std::string group = "";
-
-                for (size_t i = 0; i < curGroupByKey.size(); i++) {
-                    int32_t idx = curGroupByKey[i];
-                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log,
-                        "metrics set===== group by scanner do next:  %d ",
-                         idx);
-                    group.append(1, tag_values[idx].value[0]);
-                    group.append(1, tag_values[idx].value[1]);
-                    group.append(1, tag_values[idx].value[2]);
-                    group.append(1, tag_values[idx].value[3]);
+                if (diff || currentHour != hour) {
+                    needDump = true;
                 }
-                if (saveGroup.length() == 0) {
-                    saveGroup = group;
-                }
-                Slice g1 = saveGroup;
-                Slice g2 = group;
-                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics group by scanner do next: %s=%s %d",
-                    g1.ToString(true).data(), g2.ToString(true).data(),currentHour);
-                if (memcmp(saveGroup.data(), group.data(), group.length()) != 0) {
-                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics diff group by scanner do next");
-                    dumpAllResult();
-
-                    newGroup = true;
-                }
-
                 Slice value = iter_->value();
+                if (!hasValue) {
+                    hasValue = value.size() > 0;
+                }
+
+                if (hasValue && needDump) {
+                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "metrics key is: %s=%s %d %d %d",
+                        iter_->key().ToString(true).data(), Slice(groupResult_).ToString(true).data(), startHour, hour, endHour);
+                    dumpAllResult();
+                } else {
+                    needDump = false;
+                }
                 while (value.size() > 0) {
                     //get point type
                     char point_type = value[0];
@@ -215,17 +218,14 @@ namespace rocksdb {
                     }
                 }
 
-                if (newGroup) {
-                    //set new save group
-                    saveGroup = group;
-                    break;
+                if (needDump) {
+                    return;
                 }
+
             }
-            if (hasValue && !newGroup) {
                 //dump aggregator result
                 dumpAllResult();
                 Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "dump result only data");
-            }
         }
 
         virtual int32_t getCurrentHour() override {
@@ -233,7 +233,7 @@ namespace rocksdb {
         }
 
         virtual Slice getGroupBy() override {
-            return groupByKey;
+            return groupResult_;
         }
 
         virtual Slice getResultSet() override {
@@ -250,10 +250,6 @@ namespace rocksdb {
             } else {
                 return;
             }
-            if (tagNamesId.size() != groupBys.size()) {
-                return;
-            }
-            tagNamesIdLen = tagNamesId.size();
             metricLen = VarintLength(metric);
             if (countPoints_ == nullptr) {
                 countPoints_ = new DataPoint[pointCount];
@@ -270,7 +266,14 @@ namespace rocksdb {
         }
 
         void dumpAllResult() {
-            groupByKey.append(saveGroup);
+            if (saveGroupByKey != nullptr) {
+                groupResult_.clear();
+                for (uint32_t i = 0; i < groupSize; i++) {
+                    PutVarint32(&groupResult_, saveGroupByKey[i]);
+                    //exchange current group by to save group by for new
+                    saveGroupByKey[i] = curGroupByKey[i];
+                }
+            }
 
             dumpResult(point_type_sum, sumPoints_);
             dumpResult(point_type_count, countPoints_);
@@ -288,6 +291,7 @@ namespace rocksdb {
                 if (point->hasValue) {
                     PutVarint32Varint64(&aggResult, i, point->value);
                     point->hasValue = false;
+                    hasValue = true;
                 }
             }
             if (aggResult.size() > 0) {
@@ -297,6 +301,14 @@ namespace rocksdb {
             }
         }
 
+        void clearGroupByKey(uint32_t *groupByKey) {
+            if (groupByKey == nullptr) {
+                return;
+            }
+            for (uint32_t i = 0; i < groupSize; i++) {
+                groupByKey[i] = 0;
+            }
+        }
 
         void agg(char point_type, size_t len, Slice *value, DataPoint *aggMap) {
             size_t size = value->size();
@@ -327,19 +339,19 @@ namespace rocksdb {
          *  if all values are < value, return tag name ids length
          */
         int32_t binarySearch(uint32_t tagNameId) {
-            int32_t low = 0;
-            int32_t high = tagNamesIdLen - 1;
-            while (low <= high) {
-                int32_t mid = (low + high) / 2;
-                int midVal = tagNamesId[mid];
-                if (midVal < tagNameId) {
-                    low = mid + 1;
-                } else if (midVal > tagNameId) {
-                    high = mid - 1;
-                } else {
-                    return mid;//key found
-                }
-            }
+//            int32_t low = 0;
+//            int32_t high = tagNamesIdLen - 1;
+//            while (low <= high) {
+//                int32_t mid = (low + high) / 2;
+//                int midVal = tagNamesId[mid];
+//                if (midVal < tagNameId) {
+//                    low = mid + 1;
+//                } else if (midVal > tagNameId) {
+//                    high = mid - 1;
+//                } else {
+//                    return mid;//key found
+//                }
+//            }
             return -1;//key found found
         }
     };

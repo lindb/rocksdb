@@ -31,7 +31,7 @@ namespace rocksdb {
 
         uint32_t pointCount = 60;
 
-        virtual void addGroupBy(uint32_t tagNameId, Slice &target) = 0;
+        virtual void addGroupBy(uint32_t, Slice &target) = 0;
 
         virtual bool hasNext() = 0;
 

@@ -12,6 +12,10 @@ public class MetricsScanner extends RocksObject {
     private int startHour = -1;
     private int endHour = -1;
     private int maxPointCount;
+    private byte[] tagFilters;
+    private byte[] groupBy;
+    private boolean enableLog;
+    private boolean init = true;
 
     public MetricsScanner(RocksDB rocksDB, int maxPointCount, long nativeHandle) {
         super(nativeHandle);
@@ -23,29 +27,51 @@ public class MetricsScanner extends RocksObject {
         this.metric = metric;
     }
 
+    public void setEnableLog(boolean enableLog){
+        this.enableLog = enableLog;
+    }
+
     public void setHourRange(int startHour,int endHour) {
         this.startHour = startHour;
         this.endHour = endHour;
     }
 
-    public void next() throws RocksDBException {
-        if (metric == -1) {
-            throw new RocksDBException("Metric cannot be empty.");
-        }
-        if (startHour == -1) {
-            throw new RocksDBException("Start hour cannot be empty.");
-        }
-        if (endHour == -1) {
-            throw new RocksDBException("End hour cannot be empty.");
-        }
+    public void setTagFilters(byte[] tagFilters){
+        this.tagFilters = tagFilters;
+    }
 
-        if (maxPointCount <= 0) {
-            throw new RocksDBException("Max point count must be > 0.");
+    public void setGroupBy(byte[] groupBy){
+        this.groupBy = groupBy;
+    }
+
+    public void next() throws RocksDBException {
+        if(init){
+            if (metric == -1) {
+                throw new RocksDBException("Metric cannot be empty.");
+            }
+            if (startHour == -1) {
+                throw new RocksDBException("Start hour cannot be empty.");
+            }
+            if (endHour == -1) {
+                throw new RocksDBException("End hour cannot be empty.");
+            }
+
+            if (maxPointCount <= 0) {
+                throw new RocksDBException("Max point count must be > 0.");
+            }
+            maxPointCount(nativeHandle_, maxPointCount);
+            metric(nativeHandle_, metric);
+            startHour(nativeHandle_, startHour);
+            endHour(nativeHandle_, endHour);
+            if(tagFilters!=null && tagFilters.length>0){
+                setTagFilters(nativeHandle_, tagFilters.length, tagFilters);
+            }
+            if(groupBy!=null && groupBy.length>0){
+                setGroupBy(nativeHandle_, groupBy.length, groupBy);
+            }
+            enableLog(nativeHandle_,enableLog);
+            init = false;
         }
-        maxPointCount(nativeHandle_, maxPointCount);
-        metric(nativeHandle_, metric);
-        startHour(nativeHandle_, startHour);
-        endHour(nativeHandle_, endHour);
 
         next(nativeHandle_);
     }
@@ -62,6 +88,10 @@ public class MetricsScanner extends RocksObject {
         return getResultSet(nativeHandle_);
     }
 
+    public byte[] getGroupBy(){
+        return getGroupBy(nativeHandle_);
+    }
+
     public void close() {
         super.close();
     }
@@ -72,6 +102,8 @@ public class MetricsScanner extends RocksObject {
             disposeInternal(nativeHandle_);
         }
     }
+
+    private native void enableLog(long handler, boolean enable);
 
     private native void maxPointCount(long handle, int maxPointCount);
 
@@ -88,6 +120,12 @@ public class MetricsScanner extends RocksObject {
     private native int getCurrentHour(long handle);
 
     private native byte[] getResultSet(long handle);
+
+    private native byte[] getGroupBy(long handle);
+
+    private native void setTagFilters(long handle, int len, byte[] tagFilters);
+
+    private native void setGroupBy(long handle, int len, byte[] groupBy);
 
     @Override
     protected final native void disposeInternal(final long handle);

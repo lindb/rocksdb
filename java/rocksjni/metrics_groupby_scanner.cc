@@ -60,14 +60,14 @@ void Java_org_rocksdb_MetricsGroupByScanner_endHour(JNIEnv *env, jobject jobj, j
  * Signature: (JI[BI)V
  */
 void Java_org_rocksdb_MetricsGroupByScanner_addGroupBy
-        (JNIEnv *env, jobject jobj, jlong handle, jint tagNamesId, jbyteArray jtarget, jint jtarget_len) {
+        (JNIEnv *env, jobject jobj, jlong handle, jint jgroup_size,jbyteArray jtarget, jint jtarget_len) {
     auto *scanner = reinterpret_cast<rocksdb::MetricsGroupByScanner *>(handle);
 
     jbyte *target = env->GetByteArrayElements(jtarget, 0);
     rocksdb::Slice target_slice(
             reinterpret_cast<char *>(target), jtarget_len);
 
-    scanner->addGroupBy(tagNamesId, target_slice);
+    scanner->addGroupBy(jgroup_size,target_slice);
 
     env->ReleaseByteArrayElements(jtarget, target, JNI_ABORT);
 }
