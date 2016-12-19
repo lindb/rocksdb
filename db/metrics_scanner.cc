@@ -191,13 +191,14 @@ namespace rocksdb {
                 iter_->Next();
             }
             DBOptions options;
-            if(enableLog){
-                 options = db_->GetDBOptions();
+            if (enableLog) {
+                options = db_->GetDBOptions();
             }
             while (!finish_ && iter_->Valid()) {
                 Slice key = iter_->key();
-                if(enableLog){
-                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "key : %s %d", key.ToString(true).data(), currentHour_);
+                if (enableLog) {
+                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "key : %s %d", key.ToString(true).data(),
+                        currentHour_);
                 }
                 GetVarint32(&key, &readMetric_);
                 if (readMetric_ != metric) {
@@ -218,7 +219,7 @@ namespace rocksdb {
                     currentHour_ = readHour_;
                 } else if (currentHour_ != readHour_) {
                     //if hour is different, then finish current hour scan
-                    if(enableLog) {
+                    if (enableLog) {
                         Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "hour diff dump");
                     }
                     dumpAllResult();
@@ -234,7 +235,8 @@ namespace rocksdb {
                 //do tag filter if input tag filter
                 if (hasFilter_ && filterTag(&key)) {
                     if (enableLog) {
-                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "skip key : %s", Slice(seekKey_).ToString(true).data());
+                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "skip key : %s",
+                            Slice(seekKey_).ToString(true).data());
                     }
                     bool flag = skip();
                     if (!flag && !finish_) {
@@ -243,14 +245,18 @@ namespace rocksdb {
                     } else if (finish_ && readHour_ < endHour) {
                         //if finish and read hour < end hour, skip to next hour
                         seekKey_.clear();
-                        PutVarint32Varint32(&seekKey_, metric, readHour_+1);
+                        PutVarint32Varint32(&seekKey_, metric, readHour_ + 1);
                         skip();
                     }
                     continue;
                 }
 
                 if (hasGroup_) {
-                    if (!groupDiff_ && groupFoundCount_ != groupByCount_) {
+                    //if group by diff, then finish current group by scan
+                    if (enableLog) {
+                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "has group by reminding key is %s %d %d",key.ToString(true).data(),groupFoundCount_,groupByCount_);
+                    }
+                    if (groupFoundCount_ < groupByCount_) {
                         uint32_t tagName = 0;
                         uint32_t tagValue = 0;
                         while (key.size() > 0) {
@@ -283,7 +289,8 @@ namespace rocksdb {
                 hasValue_ = true;
                 aggCount_++;
                 if (enableLog) {
-                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "need add agg key : %s %d", iter_->key().ToString(true).data(), readHour_);
+                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "need add agg key : %s %d",
+                        iter_->key().ToString(true).data(), readHour_);
                 }
                 Slice value = iter_->value();
                 while (value.size() > 0) {
@@ -325,6 +332,12 @@ namespace rocksdb {
                     }
                     iter_->Next();
                 } else {
+                    if (hasGroup_) {
+                        //if save group diff current group and read new value for current group, then reset save group
+                        for (uint32_t i = 0; i < groupByCount_; i++) {
+                            saveGroupByKey_[i] = curGroupByKey_[i];
+                        }
+                    }
                     return;
                 }
             }
@@ -356,8 +369,12 @@ namespace rocksdb {
     private:
 
         void doGroupBy(uint32_t tagName, uint32_t tagValue) {
-            if (groupDiff_ || groupFoundCount_ == groupByCount_) {
+            if (groupFoundCount_ >= groupByCount_) {
                 return;
+            }
+            if (enableLog) {
+                DBOptions options = db_->GetDBOptions();
+                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "do group by save group key %d %d %d %d",groupPos_,saveGroupByKey_[groupPos_],tagName,tagValue);
             }
             if (tagName == groupBy_[groupPos_]) {
                 curGroupByKey_[groupPos_] = tagValue;
@@ -494,7 +511,7 @@ namespace rocksdb {
                 groupByResult_.clear();
                 for (uint32_t i = 0; i < groupByCount_; i++) {
                     PutVarint32(&groupByResult_, saveGroupByKey_[i]);
-                    saveGroupByKey_[i] = curGroupByKey_[i];
+                    saveGroupByKey_[i] = 0;
                 }
             }
             dumpResult(point_type_sum, sumPoints_);
