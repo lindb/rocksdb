@@ -34,7 +34,8 @@ namespace rocksdb {
         std::string seekKey_ = "";
         uint32_t readMetric_ = 0;
         uint8_t readHour_ = 0;
-        int32_t currentHour_ = -1;
+        int8_t saveHour_ = -1;
+        int8_t currentHour_ = -1;
 
         uint32_t *curGroupByKey_ = nullptr;
         uint32_t *saveGroupByKey_ = nullptr;
@@ -215,9 +216,10 @@ namespace rocksdb {
                     break;
                 }
 
-                if (currentHour_ == -1) {
+                if (saveHour_ == -1) {
                     currentHour_ = readHour_;
-                } else if (currentHour_ != readHour_) {
+                    saveHour_ = readHour_;
+                } else if (saveHour_ != readHour_) {
                     //if hour is different, then finish current hour scan
                     if (enableLog) {
                         Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "hour diff dump");
@@ -254,7 +256,8 @@ namespace rocksdb {
                 if (hasGroup_) {
                     //if group by diff, then finish current group by scan
                     if (enableLog) {
-                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "has group by reminding key is %s %d %d",key.ToString(true).data(),groupFoundCount_,groupByCount_);
+                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "has group by reminding key is %s %d %d",
+                            key.ToString(true).data(), groupFoundCount_, groupByCount_);
                     }
                     if (groupFoundCount_ < groupByCount_) {
                         uint32_t tagName = 0;
@@ -287,6 +290,7 @@ namespace rocksdb {
                 }
 
                 hasValue_ = true;
+                saveHour_ = readHour_;
                 aggCount_++;
                 if (enableLog) {
                     Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "need add agg key : %s %d",
@@ -374,7 +378,8 @@ namespace rocksdb {
             }
             if (enableLog) {
                 DBOptions options = db_->GetDBOptions();
-                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "do group by save group key %d %d %d %d",groupPos_,saveGroupByKey_[groupPos_],tagName,tagValue);
+                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "do group by save group key %d %d %d %d", groupPos_,
+                    saveGroupByKey_[groupPos_], tagName, tagValue);
             }
             if (tagName == groupBy_[groupPos_]) {
                 curGroupByKey_[groupPos_] = tagValue;
@@ -507,6 +512,7 @@ namespace rocksdb {
         }
 
         void dumpAllResult() {
+            currentHour_ = saveHour_;
             if (hasGroup_) {
                 groupByResult_.clear();
                 for (uint32_t i = 0; i < groupByCount_; i++) {
