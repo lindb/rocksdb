@@ -323,7 +323,6 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/filter.cc                                     \
   java/rocksjni/iterator.cc                                   \
   java/rocksjni/metrics_scanner.cc                            \
-  java/rocksjni/metrics_groupby_scanner.cc                    \
   java/rocksjni/loggerjnicallback.cc                          \
   java/rocksjni/memtablejni.cc                                \
   java/rocksjni/merge_operator.cc                             \
