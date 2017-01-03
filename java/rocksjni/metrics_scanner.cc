@@ -130,6 +130,22 @@ jbyteArray Java_org_rocksdb_MetricsScanner_getGroupBy
                             reinterpret_cast<const jbyte *>(value_slice.data()));
     return jkeyValue;
 }
+
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    getStat
+ * Signature: (J)[B
+ */
+jbyteArray Java_org_rocksdb_MetricsScanner_getStat
+        (JNIEnv *env, jobject jobj, jlong handle) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    rocksdb::Slice value_slice = scanner->getStat();
+    jsize size = static_cast<jsize>(value_slice.size());
+    jbyteArray jkeyValue = env->NewByteArray(size);
+    env->SetByteArrayRegion(jkeyValue, 0, size,
+                            reinterpret_cast<const jbyte *>(value_slice.data()));
+    return jkeyValue;
+}
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    setTagFilters

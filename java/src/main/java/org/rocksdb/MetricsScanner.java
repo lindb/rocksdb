@@ -92,6 +92,10 @@ public class MetricsScanner extends RocksObject {
         return getGroupBy(nativeHandle_);
     }
 
+    public byte[] getStat(){
+        return getStat(nativeHandle_);
+    }
+
     public void close() {
         super.close();
     }
@@ -122,6 +126,8 @@ public class MetricsScanner extends RocksObject {
     private native byte[] getResultSet(long handle);
 
     private native byte[] getGroupBy(long handle);
+
+    private native byte[] getStat(long handle);
 
     private native void setTagFilters(long handle, int len, byte[] tagFilters);
 

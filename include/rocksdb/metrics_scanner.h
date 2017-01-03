@@ -45,6 +45,8 @@ namespace rocksdb {
         virtual Slice getResultSet()  = 0;
 
         virtual Slice getGroupBy() = 0;
+
+        virtual Slice getStat() = 0;
     };
 
     // Return an empty iterator (yields nothing).

@@ -47,6 +47,7 @@ namespace rocksdb {
 
         std::string resultSet_ = "";
         std::string groupByResult_ = "";
+        std::string statResult_ = "";
         TagFilter *tagFilters_ = nullptr;
         uint32_t filterCount_ = 0;
         bool hasFilter_ = false;
@@ -63,6 +64,11 @@ namespace rocksdb {
         DataPoint *sumPoints_ = nullptr;
         DataPoint *minPoints_ = nullptr;
         DataPoint *maxPoints_ = nullptr;
+
+        uint32_t readCount_ = 0;
+        uint32_t skipCount_ = 0;
+        uint32_t readKeySize_ = 0;
+        uint32_t readValueSize_ = 0;
     public:
         MetricsScannerImpl(DB *db, ReadOptions &read_options) {
             db_ = db;
@@ -200,6 +206,8 @@ namespace rocksdb {
                 if (enableLog) {
                     Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "key : %s %d", key.ToString(true).data(),
                         currentHour_);
+                    readKeySize_ += key.size();
+                    readCount_++;
                 }
                 GetVarint32(&key, &readMetric_);
                 if (readMetric_ != metric) {
@@ -239,6 +247,7 @@ namespace rocksdb {
                     if (enableLog) {
                         Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "skip key : %s",
                             Slice(seekKey_).ToString(true).data());
+                        skipCount_++;
                     }
                     bool flag = skip();
                     if (!flag && !finish_) {
@@ -292,11 +301,12 @@ namespace rocksdb {
                 hasValue_ = true;
                 saveHour_ = readHour_;
                 aggCount_++;
+                Slice value = iter_->value();
                 if (enableLog) {
                     Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "need add agg key : %s %d",
                         iter_->key().ToString(true).data(), readHour_);
+                    readValueSize_ += value.size();
                 }
-                Slice value = iter_->value();
                 while (value.size() > 0) {
                     //get point type
                     char point_type = value[0];
@@ -368,6 +378,12 @@ namespace rocksdb {
 
         virtual Slice getGroupBy() override {
             return groupByResult_;
+        }
+
+        virtual Slice getStat() override {
+            PutVarint32Varint32(&statResult_, readCount_, skipCount_);
+            PutVarint32Varint32(&statResult_, readKeySize_, readValueSize_);
+            return statResult_;
         }
 
     private:
