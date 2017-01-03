@@ -1173,10 +1173,6 @@ public class RocksDB extends RocksObject {
   public MetricsScanner newMetricsScanner(final int maxPointCount,final ReadOptions readOptions) {
     return new MetricsScanner(this, maxPointCount,metricsScanner(nativeHandle_, readOptions.nativeHandle_));
   }
-
-  public MetricsGroupByScanner newMetricsGroupByScanner(final int maxPointCount,final ReadOptions readOptions) {
-    return new MetricsGroupByScanner(this, maxPointCount,metricsGroupByScanner(nativeHandle_,readOptions.nativeHandle_));
-  }
   ///////////////metrics scanner end/////////////////////
 
   /**
@@ -1873,7 +1869,6 @@ public class RocksDB extends RocksObject {
   protected native long iterator(long handle);
   protected native long iterator(long handle, long readOptHandle);
   protected native long metricsScanner(long handle, long readOptHandle);
-  protected native long metricsGroupByScanner(long handle, long readOptHandle);
   protected native long iteratorCF(long handle, long cfHandle);
   protected native long iteratorCF(long handle, long cfHandle,
       long readOptHandle);
