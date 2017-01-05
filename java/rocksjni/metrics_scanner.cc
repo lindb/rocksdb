@@ -21,7 +21,16 @@ void Java_org_rocksdb_MetricsScanner_enableLog
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->enableLog = enableLog;
 }
-
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    start
+ * Signature: (JI)V
+ */
+void Java_org_rocksdb_MetricsScanner_enableProfiler
+        (JNIEnv *env, jobject jobj, jlong handle, jboolean enableProfiler) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    scanner->enableProfiler = enableProfiler;
+}
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    start
@@ -38,10 +47,10 @@ void Java_org_rocksdb_MetricsScanner_metric
  * Method:    startHour
  * Signature: (JI)V
  */
-void Java_org_rocksdb_MetricsScanner_startHour
-        (JNIEnv *env, jobject jobj, jlong handle, jint startHour) {
+void Java_org_rocksdb_MetricsScanner_start
+        (JNIEnv *env, jobject jobj, jlong handle, jint start) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->startHour = startHour;
+    scanner->start = start;
 }
 
 /*
@@ -49,10 +58,10 @@ void Java_org_rocksdb_MetricsScanner_startHour
  * Method:    endHour
  * Signature: (JI)V
  */
-void Java_org_rocksdb_MetricsScanner_endHour
-        (JNIEnv *env, jobject jobj, jlong handle, jint endHour) {
+void Java_org_rocksdb_MetricsScanner_end
+        (JNIEnv *env, jobject jobj, jlong handle, jint end) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    scanner->endHour = endHour;
+    scanner->end = end;
 }
 
 /*
@@ -93,10 +102,10 @@ jboolean Java_org_rocksdb_MetricsScanner_hasNext
  * Method:    getCurrentHour
  * Signature: (J)I
  */
-jint Java_org_rocksdb_MetricsScanner_getCurrentHour
+jint Java_org_rocksdb_MetricsScanner_getCurrentBaseTime
         (JNIEnv *env, jobject jobj, jlong handle) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    return scanner->getCurrentHour();
+    return scanner->getCurrentBaseTime();
 }
 
 /*

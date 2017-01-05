@@ -25,9 +25,10 @@ namespace rocksdb {
         char point_type_max = 4;
 
         bool enableLog = false;
+        bool enableProfiler = false;
         uint32_t metric = 0;
-        int32_t startHour = 0;
-        int32_t endHour = 0;
+        int32_t start = 0;
+        int32_t end = 0;
 
         uint32_t pointCount = 60;
 
@@ -39,7 +40,7 @@ namespace rocksdb {
 
         virtual bool hasNext() = 0;
 
-        virtual int32_t getCurrentHour()  = 0;
+        virtual int32_t getCurrentBaseTime()  = 0;
 
         //for agg result
         virtual Slice getResultSet()  = 0;
