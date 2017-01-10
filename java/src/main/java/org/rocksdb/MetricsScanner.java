@@ -14,72 +14,66 @@ public class MetricsScanner extends RocksObject {
     private int maxPointCount;
     private byte[] tagFilters;
     private byte[] groupBy;
-    private boolean enableLog;
-    private boolean enableProfiler;
     private boolean init = true;
 
-    public MetricsScanner(RocksDB rocksDB, int maxPointCount, long nativeHandle) {
+    public MetricsScanner(RocksDB rocksDB, long nativeHandle) {
         super(nativeHandle);
         this.rocksDB = rocksDB;
         this.maxPointCount = maxPointCount;
     }
 
-    public void setMetric(int metric) {
-        this.metric = metric;
+    public void setMaxPointCount(int maxPointCount)throws RocksDBException {
+        if (maxPointCount <= 0) {
+            throw new RocksDBException("Max point count must be > 0.");
+        }
+        maxPointCount(nativeHandle_, maxPointCount);
+    }
+
+
+    public void setMetric(int metric) throws RocksDBException {
+        if (metric == -1) {
+            throw new RocksDBException("Metric cannot be empty.");
+        }
+        metric(nativeHandle_, metric);
     }
 
     public void setEnableLog(boolean enableLog){
-        this.enableLog = enableLog;
+        enableLog(nativeHandle_,enableLog);
     }
 
      public void setEnableProfiler(boolean enableProfiler){
-            this.enableProfiler = enableProfiler;
-        }
+         enableProfiler(nativeHandle_,enableProfiler);
+     }
 
-    public void setRange(int start,int end) {
-        this.start = start;
-        this.end = end;
+    public void setRange(int start,int end) throws RocksDBException {
+        if (start == -1) {
+            throw new RocksDBException("Start slot cannot be empty.");
+        }
+        if (end == -1) {
+            throw new RocksDBException("End slot cannot be empty.");
+        }
+        start(nativeHandle_, start);
+        end(nativeHandle_, end);
     }
 
     public void setTagFilters(byte[] tagFilters){
-        this.tagFilters = tagFilters;
+        if(tagFilters!=null && tagFilters.length>0){
+            setTagFilters(nativeHandle_, tagFilters.length, tagFilters);
+        }
     }
 
     public void setGroupBy(byte[] groupBy){
-        this.groupBy = groupBy;
+        if(groupBy!=null && groupBy.length>0){
+             setGroupBy(nativeHandle_, groupBy.length, groupBy);
+        }
     }
 
-    public void next() throws RocksDBException {
-        if(init){
-            if (metric == -1) {
-                throw new RocksDBException("Metric cannot be empty.");
-            }
-            if (start == -1) {
-                throw new RocksDBException("Start slot cannot be empty.");
-            }
-            if (end == -1) {
-                throw new RocksDBException("End slot cannot be empty.");
-            }
-
-            if (maxPointCount <= 0) {
-                throw new RocksDBException("Max point count must be > 0.");
-            }
-            maxPointCount(nativeHandle_, maxPointCount);
-            metric(nativeHandle_, metric);
-            start(nativeHandle_, start);
-            end(nativeHandle_, end);
-            if(tagFilters!=null && tagFilters.length>0){
-                setTagFilters(nativeHandle_, tagFilters.length, tagFilters);
-            }
-            if(groupBy!=null && groupBy.length>0){
-                setGroupBy(nativeHandle_, groupBy.length, groupBy);
-            }
-            enableLog(nativeHandle_,enableLog);
-            enableProfiler(nativeHandle_,enableProfiler);
-            init = false;
-        }
-
+    public void next() {
         next(nativeHandle_);
+    }
+
+    public boolean hasNextBaseTime(byte baseTime){
+        return hasNextBaseTime(nativeHandle_, baseTime);
     }
 
     public boolean hasNext() {
@@ -126,6 +120,8 @@ public class MetricsScanner extends RocksObject {
     private native void end(long handle, int end);
 
     private native void next(long handle);
+
+    private native boolean hasNextBaseTime(long handle, byte baseTime);
 
     private native boolean hasNext(long handle);
 

@@ -85,7 +85,16 @@ void Java_org_rocksdb_MetricsScanner_next
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->next();
 }
-
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    hasNextBaseTime
+ * Signature: (J)Z
+ */
+jboolean Java_org_rocksdb_MetricsScanner_hasNextBaseTime
+        (JNIEnv *env, jobject jobj, jlong handle,jbyte baseTime) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    return scanner->hasNextBaseTime(baseTime);
+}
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    hasNext

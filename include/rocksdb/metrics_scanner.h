@@ -38,6 +38,8 @@ namespace rocksdb {
 
         virtual void next()  = 0;
 
+        virtual bool hasNextBaseTime(char nextBaseTime) = 0;
+
         virtual bool hasNext() = 0;
 
         virtual int32_t getCurrentBaseTime()  = 0;

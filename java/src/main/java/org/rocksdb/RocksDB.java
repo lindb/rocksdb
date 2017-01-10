@@ -1170,8 +1170,8 @@ public class RocksDB extends RocksObject {
   }
 
   ///////////////metrics scanner start/////////////////////
-  public MetricsScanner newMetricsScanner(final int maxPointCount,final ReadOptions readOptions) {
-    return new MetricsScanner(this, maxPointCount,metricsScanner(nativeHandle_, readOptions.nativeHandle_));
+  public MetricsScanner newMetricsScanner(final ReadOptions readOptions) {
+    return new MetricsScanner(this, metricsScanner(nativeHandle_, readOptions.nativeHandle_));
   }
   ///////////////metrics scanner end/////////////////////
 

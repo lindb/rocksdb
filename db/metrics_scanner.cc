@@ -33,18 +33,15 @@ namespace rocksdb {
 
         std::string seekKey_ = "";
         uint32_t readMetric_ = 0;
-        uint8_t readBaseTime_ = 0;
-        int8_t saveBaseTime_ = -1;
-        int8_t currentBaseTime_ = -1;
+        uint8_t currentBaseTime_ = 0;
 
         uint32_t *curGroupByKey_ = nullptr;
         uint32_t *saveGroupByKey_ = nullptr;
 
+
         Iterator *iter_ = nullptr;
-        bool hasValue_ = false;
         bool close_ = false;
         bool finish_ = false;
-        bool skipBaseTime_ = false;
 
         std::string resultSet_ = "";
         std::string groupByResult_ = "";
@@ -167,44 +164,68 @@ namespace rocksdb {
             }
         }
 
+        virtual bool hasNextBaseTime(char nextBaseTime) override {
+            DBOptions dbOptions = db_->GetDBOptions();
+            if (enableLog) {
+                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time : %d %s", nextBaseTime,
+                    close_ ? "true" : "false");
+            }
+            if (close_) {
+                return false;
+            }
+            if (nullptr == iter_) {
+                iter_ = db_->NewIterator(read_options_);
+            }
+            seekKey_.clear();
+            PutVarint32(&seekKey_, metric);
+            seekKey_.append(1, nextBaseTime);
+            Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time skip key : %s", seekKey_.data());
+            if (enableLog) {
+                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time skip key : %s", seekKey_.data());
+            }
+            skip();
+
+            if (iter_->Valid()) {
+                Slice key = iter_->key();
+                GetVarint32(&key, &readMetric_);
+                if (readMetric_ != metric) {
+                    //read metric != query metric, finish scan
+                    close_ = true;
+                    return false;
+                }
+                currentBaseTime_ = (uint8_t) key[0];
+                key.remove_prefix(1);
+                if (currentBaseTime_ > end) {
+                    //finish scan, because hour > end hour
+                    close_ = true;
+                    return false;
+                }
+                finish_ = false;
+                return true;
+            } else {
+                return false;
+            }
+        }
+
         virtual bool hasNext() override {
-            return (!close_ && (hasValue_ || readBaseTime_ < end) || aggCount_ > 0);
+            return !finish_ && !close_;
         }
 
         virtual void next() override {
             //reset scan context for new loop
             resultSet_.clear();
-            currentBaseTime_ = -1;
-            finish_ = false;
-            hasValue_ = false;
-
-            if (close_ || pointCount <= 0 || metric <= 0 || readBaseTime_ > end) {
-                if (aggCount_ > 0) {
-                    dumpAllResult();
-                }
+            if (close_ || pointCount <= 0 || metric <= 0) {
                 return;
-            }
-            if (nullptr == iter_) {
-                iter_ = db_->NewIterator(read_options_);
-                seekKey_.clear();
-                PutVarint32Varint32(&seekKey_, metric, start);
-                skip();
-            } else if (!skipBaseTime_) {
-                iter_->Next();
-            }
-            DBOptions options;
-            if (enableLog) {
-                options = db_->GetDBOptions();
             }
             if (!iter_->Valid()) {
                 close_ = true;
                 return;
             }
-            skipBaseTime_ = false;
+            DBOptions dbOptions = db_->GetDBOptions();
             while (!finish_ && iter_->Valid()) {
                 Slice key = iter_->key();
                 if (enableLog) {
-                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "key : %s %d", key.ToString(true).data(),
+                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "key : %s %d", key.ToString(true).data(),
                         currentBaseTime_);
                 }
                 if (enableProfiler) {
@@ -218,11 +239,10 @@ namespace rocksdb {
                     break;
                 }
 
-                readBaseTime_ = (uint8_t) key[0];
+                uint8_t readBaseTime = (uint8_t) key[0];
                 key.remove_prefix(1);
-                if (readBaseTime_ > end) {
-                    //finish iterator, because hour > end hour
-                    close_ = true;
+                if (readBaseTime != currentBaseTime_) {
+                    finish_ = true;
                     break;
                 }
 
@@ -235,7 +255,7 @@ namespace rocksdb {
                 //do tag filter if input tag filter
                 if (hasFilter_ && filterTag(&key)) {
                     if (enableLog) {
-                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "skip key : %s",
+                        Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "skip key : %s",
                             Slice(seekKey_).ToString(true).data());
                     }
                     if (enableProfiler) {
@@ -245,17 +265,6 @@ namespace rocksdb {
                     if (!flag && !finish_) {
                         //if no skip, move to next row
                         iter_->Next();
-                    } else if (finish_ && readBaseTime_ < end) {
-                        //if finish and read hour < end hour, skip to next hour
-                        seekKey_.clear();
-                        PutVarint32(&seekKey_, metric);
-                        seekKey_.append(1, (char) (readBaseTime_ + 1));
-                        if (enableLog) {
-                            Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "skip to next hour : %s",
-                                Slice(seekKey_).ToString(true).data());
-                        }
-                        skip();
-                        skipBaseTime_ = true;
                     }
                     continue;
                 }
@@ -263,7 +272,7 @@ namespace rocksdb {
                 if (hasGroup_) {
                     //if group by diff, then finish current group by scan
                     if (enableLog) {
-                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "has group by reminding key is %s %d %d",
+                        Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has group by reminding key is %s %d %d",
                             key.ToString(true).data(), groupFoundCount_, groupByCount_);
                     }
                     if (groupFoundCount_ < groupByCount_) {
@@ -289,34 +298,22 @@ namespace rocksdb {
                     if (groupDiff_) {
                         //if group by diff, then finish current group by scan
                         if (enableLog) {
-                            Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "group diff dump");
+                            Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "group diff dump result");
                         }
                         dumpAllResult();
-                        finish_ = true;
+                        return;
                     }
                 }
 
-                if (saveBaseTime_ == -1) {
-                    currentBaseTime_ = readBaseTime_;
-                    saveBaseTime_ = readBaseTime_;
-                } else if (saveBaseTime_ != readBaseTime_) {
-                    if (!finish_) {
-                        //if hour is different and no dump result for group by, then finish current hour scan
-                        if (enableLog) {
-                            Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "hour diff dump");
-                        }
-                        dumpAllResult();
-                        finish_ = true;
-                    }
+                if (finish_) {
+                    break;
                 }
 
-                hasValue_ = true;
-                saveBaseTime_ = readBaseTime_;
                 aggCount_++;
                 Slice value = iter_->value();
                 if (enableLog) {
-                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "need add agg key : %s %d",
-                        iter_->key().ToString(true).data(), readBaseTime_);
+                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "need add agg key : %s",
+                        iter_->key().ToString(true).data());
                 }
                 if (enableProfiler) {
                     readValueSize_ += value.size();
@@ -356,28 +353,16 @@ namespace rocksdb {
                 //if current hour scan not finish, move to next row
                 if (!finish_) {
                     if (enableLog) {
-                        Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "do next row ");
+                        Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "do next row ");
                     }
                     iter_->Next();
-                } else {
-                    if (hasGroup_) {
-                        //if save group diff current group and read new value for current group, then reset save group
-                        for (uint32_t i = 0; i < groupByCount_; i++) {
-                            saveGroupByKey_[i] = curGroupByKey_[i];
-                        }
-                    }
-                    return;
                 }
-            }
-            if (!hasGroup_ && end <= readBaseTime_) {
-                close_ = true;
             }
 
             if (aggCount_ > 0) {
-                currentBaseTime_ = readBaseTime_;
                 dumpAllResult();
                 if (enableLog) {
-                    Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "finish dump");
+                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "finish dump");
                 }
             }
         }
@@ -407,8 +392,8 @@ namespace rocksdb {
                 return;
             }
             if (enableLog) {
-                DBOptions options = db_->GetDBOptions();
-                Log(InfoLogLevel::ERROR_LEVEL, options.info_log, "do group by save group key %d %d %d %d", groupPos_,
+                DBOptions dbOptions = db_->GetDBOptions();
+                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "do group by save group key %d %d %d %d", groupPos_,
                     saveGroupByKey_[groupPos_], tagName, tagValue);
             }
             if (tagName == groupBy_[groupPos_]) {
@@ -512,7 +497,7 @@ namespace rocksdb {
                     return true;
                 } else {
                     //filter tag value smaller than first tag value, no data match, finish current next,
-                    //maybe have next hour
+                    //maybe have next base time
                     finish_ = true;
                     return true;
                 }
@@ -533,7 +518,8 @@ namespace rocksdb {
 
         void copyHintPrefix(Slice *key, uint32_t pos) {
             seekKey_.clear();
-            PutVarint32Varint32(&seekKey_, metric, readBaseTime_);
+            PutVarint32(&seekKey_, metric);
+            seekKey_.append(1, (char) currentBaseTime_);
             uint32_t len = key->size() - pos;
             for (uint32_t i = 0; i < len; i++) {
                 seekKey_.append(1, key->data()[i]);
@@ -541,7 +527,6 @@ namespace rocksdb {
         }
 
         void dumpAllResult() {
-            currentBaseTime_ = saveBaseTime_;
             if (hasGroup_) {
                 groupByResult_.clear();
                 for (uint32_t i = 0; i < groupByCount_; i++) {
