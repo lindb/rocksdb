@@ -36,12 +36,21 @@ void Java_org_rocksdb_MetricsScanner_enableProfiler
  * Method:    start
  * Signature: (JI)V
  */
+void Java_org_rocksdb_MetricsScanner_metricType
+        (JNIEnv *env, jobject jobj, jlong handle, jbyte metricType) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    scanner->metric_type = metricType;
+}
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    start
+ * Signature: (JI)V
+ */
 void Java_org_rocksdb_MetricsScanner_metric
         (JNIEnv *env, jobject jobj, jlong handle, jint metric) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->metric = metric;
 }
-
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    startHour

@@ -26,6 +26,7 @@ namespace rocksdb {
 
         bool enableLog = false;
         bool enableProfiler = false;
+        char metric_type = 0;
         uint32_t metric = 0;
         int32_t start = 0;
         int32_t end = 0;

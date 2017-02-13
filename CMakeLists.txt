@@ -266,8 +266,7 @@ set(SOURCES
         utilities/merge_operators/put.cc
         utilities/merge_operators/max.cc
         utilities/merge_operators/uint64add.cc
-        utilities/merge_operators/PointMergeOperator.cc
-        utilities/merge_operators/PointMergeOperatorV2.cc
+        utilities/merge_operators/MetricMergeOperator.cc
         utilities/option_change_migration/option_change_migration.cc
         utilities/options/options_util.cc
         utilities/persistent_cache/persistent_cache_tier.cc

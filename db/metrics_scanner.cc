@@ -63,6 +63,8 @@ namespace rocksdb {
         DataPoint *minPoints_ = nullptr;
         DataPoint *maxPoints_ = nullptr;
 
+        DataPoint *points_ = nullptr;
+
         uint32_t readCount_ = 0;
         uint32_t skipCount_ = 0;
         uint32_t readKeySize_ = 0;
@@ -89,6 +91,9 @@ namespace rocksdb {
             }
             if (nullptr != minPoints_) {
                 delete[] minPoints_;
+            }
+            if (nullptr != points_) {
+                delete[] points_;
             }
             if (nullptr != tagFilters_) {
                 delete[] tagFilters_;
@@ -177,16 +182,28 @@ namespace rocksdb {
                 iter_ = db_->NewIterator(read_options_);
             }
             seekKey_.clear();
+            seekKey_.append(1, metric_type);
             PutVarint32(&seekKey_, metric);
             seekKey_.append(1, nextBaseTime);
-            Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time skip key : %s", seekKey_.data());
             if (enableLog) {
-                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time skip key : %s", seekKey_.data());
+                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time skip key : %s",
+                    Slice(seekKey_).ToString(true).data());
             }
             skip();
 
             if (iter_->Valid()) {
                 Slice key = iter_->key();
+                if (enableLog) {
+                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time read key : %s",
+                        key.ToString(true).data());
+                }
+                char metricType = key[0];
+                key.remove_prefix(1);//remove metric type
+                if (metric_type != metricType) {
+                    //read metric type != query metric type, finish scan
+                    close_ = true;
+                    return false;
+                }
                 GetVarint32(&key, &readMetric_);
                 if (readMetric_ != metric) {
                     //read metric != query metric, finish scan
@@ -194,13 +211,14 @@ namespace rocksdb {
                     return false;
                 }
                 currentBaseTime_ = (uint8_t) key[0];
-                key.remove_prefix(1);
+                if (enableLog) {
+                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time is : %d", currentBaseTime_);
+                }
                 if (currentBaseTime_ > end) {
                     //finish scan, because hour > end hour
                     close_ = true;
                     return false;
                 }
-                finish_ = false;
                 return true;
             } else {
                 return false;
@@ -221,6 +239,7 @@ namespace rocksdb {
                 close_ = true;
                 return;
             }
+            finish_ = false;
             DBOptions dbOptions = db_->GetDBOptions();
             while (!finish_ && iter_->Valid()) {
                 Slice key = iter_->key();
@@ -231,6 +250,13 @@ namespace rocksdb {
                 if (enableProfiler) {
                     readKeySize_ += key.size();
                     readCount_++;
+                }
+                char metricType = key[0];
+                key.remove_prefix(1);//remove metric type
+                if (metric_type != metricType) {
+                    //read metric type != query metric type, finish scan
+                    close_ = true;
+                    break;
                 }
                 GetVarint32(&key, &readMetric_);
                 if (readMetric_ != metric) {
@@ -318,38 +344,13 @@ namespace rocksdb {
                 if (enableProfiler) {
                     readValueSize_ += value.size();
                 }
-                while (value.size() > 0) {
-                    //get point type
-                    char point_type = value[0];
-                    value.remove_prefix(1);
-                    //get point value len
-                    uint32_t len = 0;
-                    GetVarint32(&value, &len);
-
-                    //do agg
-                    if (point_type == point_type_sum) {
-                        if (nullptr == sumPoints_) {
-                            sumPoints_ = new DataPoint[pointCount];
-                        }
-                        agg(point_type, len, &value, sumPoints_);
-                    } else if (point_type == point_type_count) {
-                        if (nullptr == countPoints_) {
-                            countPoints_ = new DataPoint[pointCount];
-                        }
-                        agg(point_type, len, &value, countPoints_);
-                    } else if (point_type == point_type_min) {
-                        if (nullptr == minPoints_) {
-                            minPoints_ = new DataPoint[pointCount];
-                        }
-                        agg(point_type, len, &value, minPoints_);
-                    } else if (point_type == point_type_max) {
-                        if (nullptr == maxPoints_) {
-                            maxPoints_ = new DataPoint[pointCount];
-                        }
-                        agg(point_type, len, &value, maxPoints_);
-                    }
+                if (metric_type == 1) {
+                    aggCounter(&value);
+                } else if (metric_type == 2) {
+                    aggGauge(&value);
+                } else if (metric_type == 3) {
+                    aggTimer(&value);
                 }
-
                 //if current hour scan not finish, move to next row
                 if (!finish_) {
                     if (enableLog) {
@@ -386,6 +387,76 @@ namespace rocksdb {
         }
 
     private:
+
+        void aggCounter(Slice *value) {
+            if (nullptr == points_) {
+                points_ = new DataPoint[pointCount];
+            }
+            while (value->size() > 0) {
+                int32_t slot;
+                GetVarint32(value, (uint32_t *) &slot);
+                int64_t val;
+                GetVarint64(value, (uint64_t *) &val);
+
+                DataPoint *point = &points_[slot];
+                if (!point->hasValue) {
+                    point->value = val;
+                    point->hasValue = true;
+                } else {
+                    point->value += val;
+                }
+            }
+        }
+
+        void aggGauge(Slice *value) {
+            if (nullptr == points_) {
+                points_ = new DataPoint[pointCount];
+            }
+            while (value->size() > 0) {
+                int32_t slot;
+                GetVarint32(value, (uint32_t *) &slot);
+                int64_t val;
+                GetVarint64(value, (uint64_t *) &val);
+
+                DataPoint *point = &points_[slot];
+                point->value = val;
+                point->hasValue = true;
+            }
+        }
+
+        void aggTimer(Slice *value) {
+            while (value->size() > 0) {
+                //get point type
+                char point_type = value->data_[0];
+                value->remove_prefix(1);
+                //get point value len
+                uint32_t len = 0;
+                GetVarint32(value, &len);
+
+                //do agg
+                if (point_type == point_type_sum) {
+                    if (nullptr == sumPoints_) {
+                        sumPoints_ = new DataPoint[pointCount];
+                    }
+                    agg(point_type, len, value, sumPoints_);
+                } else if (point_type == point_type_count) {
+                    if (nullptr == countPoints_) {
+                        countPoints_ = new DataPoint[pointCount];
+                    }
+                    agg(point_type, len, value, countPoints_);
+                } else if (point_type == point_type_min) {
+                    if (nullptr == minPoints_) {
+                        minPoints_ = new DataPoint[pointCount];
+                    }
+                    agg(point_type, len, value, minPoints_);
+                } else if (point_type == point_type_max) {
+                    if (nullptr == maxPoints_) {
+                        maxPoints_ = new DataPoint[pointCount];
+                    }
+                    agg(point_type, len, value, maxPoints_);
+                }
+            }
+        }
 
         void doGroupBy(uint32_t tagName, uint32_t tagValue) {
             if (groupFoundCount_ >= groupByCount_) {
@@ -534,10 +605,23 @@ namespace rocksdb {
                     saveGroupByKey_[i] = 0;
                 }
             }
-            dumpResult(point_type_sum, sumPoints_);
-            dumpResult(point_type_count, countPoints_);
-            dumpResult(point_type_min, minPoints_);
-            dumpResult(point_type_max, maxPoints_);
+            if (metric_type == 3) {
+                dumpResult(point_type_sum, sumPoints_);
+                dumpResult(point_type_count, countPoints_);
+                dumpResult(point_type_min, minPoints_);
+                dumpResult(point_type_max, maxPoints_);
+            } else if (metric_type == 1 || metric_type == 2) {
+                if (nullptr == points_) {
+                    return;
+                }
+                for (uint32_t i = 0; i < pointCount; i++) {
+                    DataPoint *point = &points_[i];
+                    if (point->hasValue) {
+                        PutVarint32Varint64(&resultSet_, i, point->value);
+                        point->hasValue = false;
+                    }
+                }
+            }
             aggCount_ = 0;
         }
 
