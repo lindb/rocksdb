@@ -3,83 +3,18 @@
 //
 
 #include <memory>
+#include <utilities/tsdb/CounterMerger.h>
+#include "utilities/tsdb/GaugeMerger.h"
+#include "utilities/tsdb/PercentMerger.h"
+#include <utilities/tsdb/TSDB.h>
 
 #include "MetricMergeOperator.h"
 
-#include "rocksdb/env.h"
 #include "util/coding.h"
 #include "utilities/merge_operators.h"
 
 namespace rocksdb {
-    static void mergeCounter(const Slice *existing_value,
-                             const Slice &value, std::string *new_value, Logger *logger) {
-        //copy slice for existing value and current value
-        Slice old_slice = Slice(existing_value->data(), existing_value->size());
-        Slice cur_slice = Slice(value.data(), value.size());
 
-        int32_t old_slot = -1, new_slot = -1;
-        int64_t old_val = 0, new_val = 0;
-        while (cur_slice.size() > 0 || cur_slice.size() > 0 || old_slot != -1 || new_slot != -1) {
-            if (old_slot == -1 && old_slice.size() > 0) {
-                GetVarint32(&old_slice, (uint32_t *) &old_slot);
-                GetVarint64(&old_slice, (uint64_t *) &old_val);
-            }
-            if (new_slot == -1 && cur_slice.size() > 0) {
-                GetVarint32(&cur_slice, (uint32_t *) &new_slot);
-                GetVarint64(&cur_slice, (uint64_t *) &new_val);
-            }
-            if (old_slot == new_slot && old_slot != -1) {
-                //put count/sum value into merge value
-                PutVarint32Varint64(new_value, (uint32_t) old_slot, old_val + new_val);
-                //reset old/new slot for next loop
-                old_slot = -1, new_slot = -1;
-            } else if (old_slot != -1 && (new_slot == -1 || old_slot < new_slot)) {
-                PutVarint32Varint64(new_value, (uint32_t) old_slot, old_val);
-                //reset old slot for next loop
-                old_slot = -1;
-            } else if (new_slot != -1 && (old_slot == -1 || new_slot < old_slot)) {
-                PutVarint32Varint64(new_value, (uint32_t) new_slot, new_val);
-                //reset new slot for next loop
-                new_slot = -1;
-            }
-        }
-    }
-
-    static void mergeGauge(const Slice *existing_value,
-                           const Slice &value, std::string *new_value, Logger *logger) {
-        //copy slice for existing value and current value
-        Slice old_slice = Slice(existing_value->data(), existing_value->size());
-        Slice cur_slice = Slice(value.data(), value.size());
-
-        int32_t old_slot = -1, new_slot = -1;
-        while (cur_slice.size() > 0 || cur_slice.size() > 0 || old_slot != -1 || new_slot != -1) {
-            if (old_slot == -1 && old_slice.size() > 0) {
-                GetVarint32(&old_slice, (uint32_t *) &old_slot);
-            }
-            if (new_slot == -1 && cur_slice.size() > 0) {
-                GetVarint32(&cur_slice, (uint32_t *) &new_slot);
-            }
-            if (old_slot == new_slot && old_slot != -1) {
-                //put count/sum value into merge value
-                PutVarint32(new_value, (uint32_t) old_slot);
-                new_value->append(old_slice.data(), 8);
-                //reset old/new slot for next loop
-                old_slice.remove_prefix(8);
-                cur_slice.remove_prefix(8);
-                old_slot = -1, new_slot = -1;
-            } else if (old_slot != -1 && (new_slot == -1 || old_slot < new_slot)) {
-                PutVarint32(new_value, (uint32_t) old_slot);
-                //reset old slot for next loop
-                old_slot = -1;
-                old_slice.remove_prefix(8);
-            } else if (new_slot != -1 && (old_slot == -1 || new_slot < old_slot)) {
-                PutVarint32(new_value, (uint32_t) new_slot);
-                //reset new slot for next loop
-                new_slot = -1;
-                cur_slice.remove_prefix(8);
-            }
-        }
-    }
 
     static void mergeTimer(const Slice *existing_value,
                            const Slice &value, std::string *new_value, Logger *logger) {
@@ -195,12 +130,26 @@ namespace rocksdb {
             new_value->assign(value.data(), value.size());
         } else {
             char metricType = key[0];
-            if (metricType == 1) {
-                mergeCounter(existing_value, value, new_value, logger);
-            } else if (metricType == 2) {
-                mergeGauge(existing_value, value, new_value, logger);
-            } else if (metricType == 3) {
+            if (metricType == TSDB::METRIC_TYPE_COUNTER) {
+                CounterMerger::merge(existing_value->data(),
+                                     (uint32_t) existing_value->size(),
+                                     value.data(),
+                                     (uint32_t) value.size(),
+                                     new_value);
+            } else if (metricType == TSDB::METRIC_TYPE_GAUGE) {
+                GaugeMerger::merge(existing_value->data(),
+                                   (uint32_t) existing_value->size(),
+                                   value.data(),
+                                   (uint32_t) value.size(),
+                                   new_value);
+            } else if (metricType == TSDB::METRIC_TYPE_TIMER) {
                 mergeTimer(existing_value, value, new_value, logger);
+            } else if (metricType == TSDB::METRIC_TYPE_PERCENT) {
+                PercentMerger::merge(existing_value->data(),
+                                     (uint32_t) existing_value->size(),
+                                     value.data(),
+                                     (uint32_t) value.size(),
+                                     new_value);
             }
         }
         return true;

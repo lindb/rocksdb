@@ -2,15 +2,14 @@
 // Created by jie.huang on 16/11/15.
 //
 #include <iostream>
+#include <utilities/tsdb/CounterMerger.h>
+#include <utilities/tsdb/GaugeMerger.h>
+#include <utilities/tsdb/PercentMerger.h>
+#include <utilities/tsdb/TSDB.h>
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
 #include "util/coding.h"
-
-struct DataPoint {
-    bool hasValue = false;
-    int64_t value = 0;
-};
 
 struct TagFilter {
     uint32_t count = 0;
@@ -44,8 +43,12 @@ namespace rocksdb {
         bool finish_ = false;
 
         std::string resultSet_ = "";
+        std::string tempResult_ = "";
+
         std::string groupByResult_ = "";
         std::string statResult_ = "";
+
+
         TagFilter *tagFilters_ = nullptr;
         uint32_t filterCount_ = 0;
         bool hasFilter_ = false;
@@ -57,13 +60,6 @@ namespace rocksdb {
         bool groupDiff_ = false;
 
         uint32_t aggCount_ = 0;
-
-        DataPoint *countPoints_ = nullptr;
-        DataPoint *sumPoints_ = nullptr;
-        DataPoint *minPoints_ = nullptr;
-        DataPoint *maxPoints_ = nullptr;
-
-        DataPoint *points_ = nullptr;
 
         uint32_t readCount_ = 0;
         uint32_t skipCount_ = 0;
@@ -79,21 +75,6 @@ namespace rocksdb {
         ~MetricsScannerImpl() {
             if (nullptr != iter_) {
                 delete iter_;
-            }
-            if (nullptr != countPoints_) {
-                delete[] countPoints_;
-            }
-            if (nullptr != sumPoints_) {
-                delete[] sumPoints_;
-            }
-            if (nullptr != maxPoints_) {
-                delete[] maxPoints_;
-            }
-            if (nullptr != minPoints_) {
-                delete[] minPoints_;
-            }
-            if (nullptr != points_) {
-                delete[] points_;
             }
             if (nullptr != tagFilters_) {
                 delete[] tagFilters_;
@@ -232,6 +213,7 @@ namespace rocksdb {
         virtual void next() override {
             //reset scan context for new loop
             resultSet_.clear();
+            tempResult_.clear();
             if (close_ || pointCount <= 0 || metric <= 0) {
                 return;
             }
@@ -344,11 +326,13 @@ namespace rocksdb {
                 if (enableProfiler) {
                     readValueSize_ += value.size();
                 }
-                if (metric_type == 1) {
+                if (metric_type == TSDB::METRIC_TYPE_COUNTER) {
                     aggCounter(&value);
-                } else if (metric_type == 2) {
+                } else if (metric_type == TSDB::METRIC_TYPE_GAUGE) {
                     aggGauge(&value);
-                } else if (metric_type == 3) {
+                } else if (metric_type == TSDB::METRIC_TYPE_PERCENT) {
+                    aggPercent(&value);
+                } else if (metric_type == TSDB::METRIC_TYPE_TIMER) {
                     aggTimer(&value);
                 }
                 //if current hour scan not finish, move to next row
@@ -389,73 +373,58 @@ namespace rocksdb {
     private:
 
         void aggCounter(Slice *value) {
-            if (nullptr == points_) {
-                points_ = new DataPoint[pointCount];
-            }
-            while (value->size() > 0) {
-                int32_t slot;
-                GetVarint32(value, (uint32_t *) &slot);
-                int64_t val;
-                GetVarint64(value, (uint64_t *) &val);
-
-                DataPoint *point = &points_[slot];
-                if (!point->hasValue) {
-                    point->value = val;
-                    point->hasValue = true;
-                } else {
-                    point->value += val;
-                }
-            }
+            CounterMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
+                                 (uint32_t) value->size(), &tempResult_);
+            resultSet_ = tempResult_;
+            tempResult_.clear();
         }
 
         void aggGauge(Slice *value) {
-            if (nullptr == points_) {
-                points_ = new DataPoint[pointCount];
-            }
-            while (value->size() > 0) {
-                int32_t slot;
-                GetVarint32(value, (uint32_t *) &slot);
-                int64_t val;
-                GetVarint64(value, (uint64_t *) &val);
+            GaugeMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
+                               (uint32_t) value->size(), &tempResult_);
+            resultSet_ = tempResult_;
+            tempResult_.clear();
+        }
 
-                DataPoint *point = &points_[slot];
-                point->value = val;
-                point->hasValue = true;
-            }
+        void aggPercent(Slice *value) {
+            PercentMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
+                                 (uint32_t) value->size(), &tempResult_);
+            resultSet_ = tempResult_;
+            tempResult_.clear();
         }
 
         void aggTimer(Slice *value) {
-            while (value->size() > 0) {
-                //get point type
-                char point_type = value->data_[0];
-                value->remove_prefix(1);
-                //get point value len
-                uint32_t len = 0;
-                GetVarint32(value, &len);
-
-                //do agg
-                if (point_type == point_type_sum) {
-                    if (nullptr == sumPoints_) {
-                        sumPoints_ = new DataPoint[pointCount];
-                    }
-                    agg(point_type, len, value, sumPoints_);
-                } else if (point_type == point_type_count) {
-                    if (nullptr == countPoints_) {
-                        countPoints_ = new DataPoint[pointCount];
-                    }
-                    agg(point_type, len, value, countPoints_);
-                } else if (point_type == point_type_min) {
-                    if (nullptr == minPoints_) {
-                        minPoints_ = new DataPoint[pointCount];
-                    }
-                    agg(point_type, len, value, minPoints_);
-                } else if (point_type == point_type_max) {
-                    if (nullptr == maxPoints_) {
-                        maxPoints_ = new DataPoint[pointCount];
-                    }
-                    agg(point_type, len, value, maxPoints_);
-                }
-            }
+//            while (value->size() > 0) {
+//                //get point type
+//                char point_type = value->data_[0];
+//                value->remove_prefix(1);
+//                //get point value len
+//                uint32_t len = 0;
+//                GetVarint32(value, &len);
+//
+//                //do agg
+//                if (point_type == point_type_sum) {
+//                    if (nullptr == sumPoints_) {
+//                        sumPoints_ = new DataPoint[pointCount];
+//                    }
+//                    agg(point_type, len, value, sumPoints_);
+//                } else if (point_type == point_type_count) {
+//                    if (nullptr == countPoints_) {
+//                        countPoints_ = new DataPoint[pointCount];
+//                    }
+//                    agg(point_type, len, value, countPoints_);
+//                } else if (point_type == point_type_min) {
+//                    if (nullptr == minPoints_) {
+//                        minPoints_ = new DataPoint[pointCount];
+//                    }
+//                    agg(point_type, len, value, minPoints_);
+//                } else if (point_type == point_type_max) {
+//                    if (nullptr == maxPoints_) {
+//                        maxPoints_ = new DataPoint[pointCount];
+//                    }
+//                    agg(point_type, len, value, maxPoints_);
+//                }
+//            }
         }
 
         void doGroupBy(uint32_t tagName, uint32_t tagValue) {
@@ -605,68 +574,68 @@ namespace rocksdb {
                     saveGroupByKey_[i] = 0;
                 }
             }
-            if (metric_type == 3) {
-                dumpResult(point_type_sum, sumPoints_);
-                dumpResult(point_type_count, countPoints_);
-                dumpResult(point_type_min, minPoints_);
-                dumpResult(point_type_max, maxPoints_);
-            } else if (metric_type == 1 || metric_type == 2) {
-                if (nullptr == points_) {
-                    return;
-                }
-                for (uint32_t i = 0; i < pointCount; i++) {
-                    DataPoint *point = &points_[i];
-                    if (point->hasValue) {
-                        PutVarint32Varint64(&resultSet_, i, point->value);
-                        point->hasValue = false;
-                    }
-                }
-            }
+//            if (metric_type == 3) {
+//                dumpResult(point_type_sum, sumPoints_);
+//                dumpResult(point_type_count, countPoints_);
+//                dumpResult(point_type_min, minPoints_);
+//                dumpResult(point_type_max, maxPoints_);
+//            } else if (metric_type == 1 || metric_type == 2) {
+//                if (nullptr == points_) {
+//                    return;
+//                }
+//                for (uint32_t i = 0; i < pointCount; i++) {
+//                    DataPoint *point = &points_[i];
+//                    if (point->hasValue) {
+//                        PutVarint32Varint64(&resultSet_, i, point->value);
+//                        point->hasValue = false;
+//                    }
+//                }
+//            }
             aggCount_ = 0;
         }
 
-        void dumpResult(char point_type, DataPoint *aggMap) {
-            if (nullptr == aggMap) {
-                return;
-            }
-            std::string aggResult = "";
-            for (uint32_t i = 0; i < pointCount; i++) {
-                DataPoint *point = &aggMap[i];
-                if (point->hasValue) {
-                    PutVarint32Varint64(&aggResult, i, point->value);
-                    point->hasValue = false;
-                }
-            }
-            if (aggResult.size() > 0) {
-                resultSet_.append(1, point_type);
-                PutVarint32(&resultSet_, (uint32_t) aggResult.size());
-                resultSet_.append(aggResult);
-            }
-        }
-
-        void agg(char point_type, size_t len, Slice *value, DataPoint *aggMap) {
-            size_t size = value->size();
-            while (size - value->size() < len) {
-                int32_t slot;
-                GetVarint32(value, (uint32_t *) &slot);
-                int64_t val;
-                GetVarint64(value, (uint64_t *) &val);
-
-                DataPoint *point = &aggMap[slot];
-                if (!point->hasValue) {
-                    point->value = val;
-                    point->hasValue = true;
-                } else {
-                    if (point_type == point_type_sum || point_type == point_type_count) {
-                        point->value += val;
-                    } else if (point_type == point_type_min) {
-                        point->value = point->value > val ? val : point->value;
-                    } else if (point_type == point_type_max) {
-                        point->value = point->value < val ? val : point->value;
-                    }
-                }
-            }
-        }
+//        void dumpResult(char point_type, DataPoint *aggMap) {
+//            if (nullptr == aggMap) {
+//                return;
+//            }
+//            std::string aggResult = "";
+//            for (uint32_t i = 0; i < pointCount; i++) {
+//                DataPoint *point = &aggMap[i];
+//                if (point->hasValue) {
+//                    PutVarint32Varint64(&aggResult, i, point->value);
+//                    point->hasValue = false;
+//                }
+//            }
+//            if (aggResult.size() > 0) {
+//                resultSet_.append(1, point_type);
+//                PutVarint32(&resultSet_, (uint32_t) aggResult.size());
+//                resultSet_.append(aggResult);
+//            }
+//        }
+//
+//        void agg(char point_type, size_t len, Slice *value, DataPoint *aggMap) {
+//            size_t size = value->size();
+//            while (size - value->size() < len) {
+//                int32_t slot;
+//                GetVarint32(value, (uint32_t *) &slot);
+//                int64_t val;
+//                GetVarint64(value, (uint64_t *) &val);
+//
+//                DataPoint *point = &aggMap[slot];
+//                if (!point->hasValue) {
+//                    point->value = val;
+//                    point->hasValue = true;
+//                } else {
+//                    if (point_type == point_type_sum || point_type == point_type_count) {
+//                        point->value += val;
+//                    } else if (point_type == point_type_min) {
+//                        point->value = point->value > val ? val : point->value;
+//                    } else if (point_type == point_type_max) {
+//                        point->value = point->value < val ? val : point->value;
+//                    }
+//                }
+//            }
+//        }
 
         /**
         *  find smallest value index in tag values, which >= tag value
