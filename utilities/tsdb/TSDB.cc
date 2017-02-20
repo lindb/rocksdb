@@ -6,4 +6,5 @@ namespace rocksdb {
     const char TSDB::METRIC_TYPE_GAUGE = 2;
     const char TSDB::METRIC_TYPE_TIMER = 3;
     const char TSDB::METRIC_TYPE_PERCENT = 4;
+    const char TSDB::METRIC_TYPE_APDEX = 5;
 }

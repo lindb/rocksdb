@@ -283,9 +283,11 @@ set(SOURCES
         utilities/transactions/transaction_db_mutex_impl.cc
         utilities/transactions/transaction_lock_mgr.cc
         utilities/transactions/transaction_util.cc
+        utilities/tsdb/ApdexMerger.cc
         utilities/tsdb/CounterMerger.cc
         utilities/tsdb/GaugeMerger.cc
         utilities/tsdb/PercentMerger.cc
+        utilities/tsdb/TimerMerger.cc
         utilities/tsdb/TimeSeriesStreamReader.cc
         utilities/tsdb/TimeSeriesStreamWriter.cc
         utilities/tsdb/TSDB.cc

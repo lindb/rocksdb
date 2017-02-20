@@ -155,9 +155,11 @@ LIB_SOURCES =                                                   \
   utilities/ttl/db_ttl_impl.cc                                  \
   utilities/write_batch_with_index/write_batch_with_index.cc    \
   utilities/write_batch_with_index/write_batch_with_index_internal.cc    \
+  utilities/tsdb/ApdexMerger.cc   				                \
   utilities/tsdb/CounterMerger.cc   				            \
   utilities/tsdb/GaugeMerger.cc   				                \
   utilities/tsdb/PercentMerger.cc   				            \
+  utilities/tsdb/TimerMerger.cc   				                \
   utilities/tsdb/TSDB.cc   					                    \
   utilities/tsdb/TimeSeriesStreamReader.cc   			        \
   utilities/tsdb/TimeSeriesStreamWriter.cc   			        \

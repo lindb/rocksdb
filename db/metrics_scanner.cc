@@ -6,6 +6,8 @@
 #include <utilities/tsdb/GaugeMerger.h>
 #include <utilities/tsdb/PercentMerger.h>
 #include <utilities/tsdb/TSDB.h>
+#include <utilities/tsdb/ApdexMerger.h>
+#include <utilities/tsdb/TimerMerger.h>
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
@@ -344,6 +346,8 @@ namespace rocksdb {
                     aggPercent(&value);
                 } else if (metric_type == TSDB::METRIC_TYPE_TIMER) {
                     aggTimer(&value);
+                } else if (metric_type == TSDB::METRIC_TYPE_APDEX) {
+                    aggApdex(&value);
                 }
                 //if current hour scan not finish, move to next row
                 if (!finish_) {
@@ -403,7 +407,19 @@ namespace rocksdb {
             tempResult_.clear();
         }
 
+
+        void aggApdex(Slice *value) {
+            ApdexMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
+                                 (uint32_t) value->size(), &tempResult_);
+            resultSet_ = tempResult_;
+            tempResult_.clear();
+        }
+
         void aggTimer(Slice *value) {
+            TimerMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
+                               (uint32_t) value->size(), &tempResult_);
+            resultSet_ = tempResult_;
+            tempResult_.clear();
         }
 
         void doGroupBy(uint32_t tagName, uint32_t tagValue) {
