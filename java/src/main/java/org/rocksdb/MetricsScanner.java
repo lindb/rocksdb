@@ -53,6 +53,10 @@ public class MetricsScanner extends RocksObject {
         end(nativeHandle_, end);
     }
 
+    public void setMinTagValueLen(int minTagValueLen){
+        minTagValueLen(nativeHandle_,(byte)minTagValueLen);
+    }
+
     public void setTagFilters(byte[] tagFilters) {
         if (tagFilters != null && tagFilters.length > 0) {
             setTagFilters(nativeHandle_, tagFilters.length, tagFilters);
@@ -113,6 +117,8 @@ public class MetricsScanner extends RocksObject {
     private native void metric(long handle, int metric);
 
     private native void metricType(long handle, byte metricType);
+
+    private native void minTagValueLen(long handle, byte minTagValueLen);
 
     private native void start(long handle, int start);
 

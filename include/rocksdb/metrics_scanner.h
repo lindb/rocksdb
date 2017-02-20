@@ -24,12 +24,14 @@ namespace rocksdb {
         char point_type_min = 3;
         char point_type_max = 4;
 
+
         bool enableLog = false;
         bool enableProfiler = false;
         char metric_type = 0;
         uint32_t metric = 0;
         int32_t start = 0;
         int32_t end = 0;
+        uint8_t minTagValueLen = 0;
 
         uint32_t pointCount = 60;
 

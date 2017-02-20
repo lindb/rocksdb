@@ -153,12 +153,14 @@ namespace rocksdb {
         virtual bool hasNextBaseTime(char nextBaseTime) override {
             DBOptions dbOptions = db_->GetDBOptions();
             if (enableLog) {
-                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time : %d %s", nextBaseTime,
-                    close_ ? "true" : "false");
+                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time :%d %d %d %s %s", start, end,
+                    nextBaseTime,
+                    close_ ? "true" : "false", finish_ ? "true" : "false");
             }
             if (close_) {
                 return false;
             }
+            finish_ = false;
             if (nullptr == iter_) {
                 iter_ = db_->NewIterator(read_options_);
             }
@@ -166,6 +168,7 @@ namespace rocksdb {
             seekKey_.append(1, metric_type);
             PutVarint32(&seekKey_, metric);
             seekKey_.append(1, nextBaseTime);
+            seekKey_.append(1, minTagValueLen);
             if (enableLog) {
                 Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time skip key : %s",
                     Slice(seekKey_).ToString(true).data());
@@ -192,6 +195,7 @@ namespace rocksdb {
                     return false;
                 }
                 currentBaseTime_ = (uint8_t) key[0];
+                key.remove_prefix(1);//remove base time
                 if (enableLog) {
                     Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time is : %d", currentBaseTime_);
                 }
@@ -261,7 +265,13 @@ namespace rocksdb {
                     groupDiff_ = false;
                 }
                 //do tag filter if input tag filter
-                if (hasFilter_ && filterTag(&key)) {
+                char maxTagValueLen = key[0];
+                key.remove_prefix(1);
+                if (minTagValueLen == 0 && maxTagValueLen > 0) {
+                    finish_ = true;//key has tag, but query no tag metric
+                    break;
+                }
+                if (hasFilter_ && filterTag(&key, maxTagValueLen)) {
                     if (enableLog) {
                         Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "skip key : %s",
                             Slice(seekKey_).ToString(true).data());
@@ -287,9 +297,9 @@ namespace rocksdb {
                         uint32_t tagName = 0;
                         uint32_t tagValue = 0;
                         while (key.size() > 0) {
-                            tagName = GetFixed32(key.data());
+                            tagName = GetFixed32(key.data(), 4);
                             key.remove_prefix(4);
-                            tagValue = GetFixed32(key.data());
+                            tagValue = GetFixed32(key.data(), 4);
                             key.remove_prefix(4);
                             doGroupBy(tagName, tagValue);
                             if (groupFoundCount_ == groupByCount_) {
@@ -394,37 +404,6 @@ namespace rocksdb {
         }
 
         void aggTimer(Slice *value) {
-//            while (value->size() > 0) {
-//                //get point type
-//                char point_type = value->data_[0];
-//                value->remove_prefix(1);
-//                //get point value len
-//                uint32_t len = 0;
-//                GetVarint32(value, &len);
-//
-//                //do agg
-//                if (point_type == point_type_sum) {
-//                    if (nullptr == sumPoints_) {
-//                        sumPoints_ = new DataPoint[pointCount];
-//                    }
-//                    agg(point_type, len, value, sumPoints_);
-//                } else if (point_type == point_type_count) {
-//                    if (nullptr == countPoints_) {
-//                        countPoints_ = new DataPoint[pointCount];
-//                    }
-//                    agg(point_type, len, value, countPoints_);
-//                } else if (point_type == point_type_min) {
-//                    if (nullptr == minPoints_) {
-//                        minPoints_ = new DataPoint[pointCount];
-//                    }
-//                    agg(point_type, len, value, minPoints_);
-//                } else if (point_type == point_type_max) {
-//                    if (nullptr == maxPoints_) {
-//                        maxPoints_ = new DataPoint[pointCount];
-//                    }
-//                    agg(point_type, len, value, maxPoints_);
-//                }
-//            }
         }
 
         void doGroupBy(uint32_t tagName, uint32_t tagValue) {
@@ -433,7 +412,8 @@ namespace rocksdb {
             }
             if (enableLog) {
                 DBOptions dbOptions = db_->GetDBOptions();
-                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "do group by save group key %d %d %d %d", groupPos_,
+                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "do group by save group key %d %d %d %d",
+                    groupPos_,
                     saveGroupByKey_[groupPos_], tagName, tagValue);
             }
             if (tagName == groupBy_[groupPos_]) {
@@ -457,7 +437,7 @@ namespace rocksdb {
             return true;
         }
 
-        bool filterTag(Slice *key) {
+        bool filterTag(Slice *key, char maxTagValueLen) {
             size_t pos = key->size();
             if (pos <= 0) {
                 return false;
@@ -477,9 +457,9 @@ namespace rocksdb {
                 uint32_t tagName = 0;
                 pos = key->size();
                 while (pos > 0) {
-                    tagName = GetFixed32(key->data());
+                    tagName = GetFixed32(key->data(), 4);
                     key->remove_prefix(4);
-                    tagValue = GetFixed32(key->data());
+                    tagValue = GetFixed32(key->data(), 4);
                     key->remove_prefix(4);
                     //do group by if need
                     if (hasGroup_) {
@@ -515,7 +495,7 @@ namespace rocksdb {
                             continue;
                         } else {
                             //skip to upper tag value for this tag name
-                            createHint(&rawKey, pos, tagName, upper);
+                            createHint(&rawKey, pos, tagName, upper, 4, maxTagValueLen);
                             return true;
                         }
                     }
@@ -529,10 +509,11 @@ namespace rocksdb {
                 if (backTrackName > 0) {
                     if (diff > 0) {
                         //if query tag name larger than read tag name, skip to query tag name
-                        createHint(&rawKey, backTrackPos, tagNameFilter);
+                        createHint(&rawKey, backTrackPos, tagNameFilter, 4, maxTagValueLen);
                     } else {
                         //skip to next tag value for before tag name
-                        createHint(&rawKey, backTrackPos, backTrackName, backTrackValue);
+                        createHint(&rawKey, backTrackPos, backTrackName, backTrackValue, 4,
+                                   maxTagValueLen);
                     }
                     return true;
                 } else {
@@ -545,21 +526,28 @@ namespace rocksdb {
             return false;
         }
 
-        void createHint(Slice *key, uint32_t pos, uint32_t tagName, uint32_t tagValue) {
-            copyHintPrefix(key, pos);
-            PutFixed32Value(&seekKey_, tagName);
-            PutFixed32Value(&seekKey_, tagValue);
+        void createHint(Slice *key, uint32_t pos, uint32_t tagName, uint32_t tagValue, char maxTagNameLen,
+                        char maxTagValueLen) {
+            char tagValueLen = variableLengthSize(tagValue);
+            if (tagValueLen < maxTagValueLen) {
+                tagValueLen = maxTagValueLen;
+            }
+            copyHintPrefix(key, pos, tagValueLen);
+            PutFixed32Value(&seekKey_, tagName, 4);
+            PutFixed32Value(&seekKey_, tagValue, 4);
         }
 
-        void createHint(Slice *key, uint32_t pos, uint32_t tagName) {
-            copyHintPrefix(key, pos);
-            PutFixed32Value(&seekKey_, tagName);
+        void createHint(Slice *key, uint32_t pos, uint32_t tagName, char maxTagNameLen, char maxTagValueLen) {
+            copyHintPrefix(key, pos, maxTagValueLen);
+            PutFixed32Value(&seekKey_, tagName, 4);
         }
 
-        void copyHintPrefix(Slice *key, uint32_t pos) {
+        void copyHintPrefix(Slice *key, uint32_t pos, char maxTagValue) {
             seekKey_.clear();
+            seekKey_.append(1, metric_type);
             PutVarint32(&seekKey_, metric);
             seekKey_.append(1, (char) currentBaseTime_);
+            seekKey_.append(1, maxTagValue);
             uint32_t len = key->size() - pos;
             for (uint32_t i = 0; i < len; i++) {
                 seekKey_.append(1, key->data()[i]);
@@ -570,27 +558,10 @@ namespace rocksdb {
             if (hasGroup_) {
                 groupByResult_.clear();
                 for (uint32_t i = 0; i < groupByCount_; i++) {
-                    PutVarint32(&groupByResult_, saveGroupByKey_[i]);
+                    PutFixed32Value(&groupByResult_, saveGroupByKey_[i], 4);
                     saveGroupByKey_[i] = 0;
                 }
             }
-//            if (metric_type == 3) {
-//                dumpResult(point_type_sum, sumPoints_);
-//                dumpResult(point_type_count, countPoints_);
-//                dumpResult(point_type_min, minPoints_);
-//                dumpResult(point_type_max, maxPoints_);
-//            } else if (metric_type == 1 || metric_type == 2) {
-//                if (nullptr == points_) {
-//                    return;
-//                }
-//                for (uint32_t i = 0; i < pointCount; i++) {
-//                    DataPoint *point = &points_[i];
-//                    if (point->hasValue) {
-//                        PutVarint32Varint64(&resultSet_, i, point->value);
-//                        point->hasValue = false;
-//                    }
-//                }
-//            }
             aggCount_ = 0;
         }
 
@@ -669,18 +640,52 @@ namespace rocksdb {
             }
         }
 
-        uint32_t GetFixed32(const char *ptr) {
-            return ((static_cast<uint32_t>(static_cast<unsigned char>(ptr[3] & 0xff)))
-                    | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[2] & 0xff)) << 8)
-                    | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[1] & 0xff)) << 16)
-                    | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[0] & 0xff))) << 24);
+        uint32_t GetFixed32(const char *ptr, char len) {
+            if (len == 1) {
+                return (static_cast<uint32_t>(static_cast<unsigned char>(ptr[0] & 0xff)));
+            } else if (len == 2) {
+                return ((static_cast<uint32_t>(static_cast<unsigned char>(ptr[1] & 0xff)))
+                        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[0] & 0xff))) << 8);
+            } else if (len == 3) {
+                return ((static_cast<uint32_t>(static_cast<unsigned char>(ptr[2] & 0xff)))
+                        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[1] & 0xff)) << 8)
+                        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[0] & 0xff))) << 16);
+            } else {
+                return ((static_cast<uint32_t>(static_cast<unsigned char>(ptr[3] & 0xff)))
+                        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[2] & 0xff)) << 8)
+                        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[1] & 0xff)) << 16)
+                        | (static_cast<uint32_t>(static_cast<unsigned char>(ptr[0] & 0xff))) << 24);
+            }
         }
 
-        void PutFixed32Value(std::string *buf, uint32_t value) {
-            buf->append(1, (char) (value >> 24 & 0xff));
-            buf->append(1, (char) (value >> 16 & 0xff));
-            buf->append(1, (char) (value >> 8 & 0xff));
-            buf->append(1, (char) (value & 0xff));
+        void PutFixed32Value(std::string *buf, uint32_t value, char len) {
+            if (len == 1) {
+                buf->append(1, (char) (value & 0xff));
+            } else if (len == 2) {
+                buf->append(1, (char) (value >> 8 & 0xff));
+                buf->append(1, (char) (value & 0xff));
+            } else if (len == 3) {
+                buf->append(1, (char) (value >> 16 & 0xff));
+                buf->append(1, (char) (value >> 8 & 0xff));
+                buf->append(1, (char) (value & 0xff));
+            } else {
+                buf->append(1, (char) (value >> 24 & 0xff));
+                buf->append(1, (char) (value >> 16 & 0xff));
+                buf->append(1, (char) (value >> 8 & 0xff));
+                buf->append(1, (char) (value & 0xff));
+            }
+        }
+
+        char variableLengthSize(uint32_t value) {
+            if (value < (1 << 8) && value >= 0) {
+                return 1;
+            } else if (value < (1 << 16) && value > 0) {
+                return 2;
+            } else if (value < (1 << 24) && value > 0) {
+                return 3;
+            } else {
+                return 4;
+            }
         }
     };
 

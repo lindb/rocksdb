@@ -41,6 +41,12 @@ void Java_org_rocksdb_MetricsScanner_metricType
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->metric_type = metricType;
 }
+
+void Java_org_rocksdb_MetricsScanner_minTagValueLen
+        (JNIEnv *env, jobject jobj, jlong handle, jbyte minTagValueLen) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    scanner->minTagValueLen = minTagValueLen;
+}
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    start
