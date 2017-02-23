@@ -274,8 +274,14 @@ namespace rocksdb {
                     break;
                 }
                 if (minTagValueLen > 0 && maxTagValueLen == 0) {
-                    finish_ = true;//key no tag, but query has tag metric
-                    break;
+                    //maybe can skip to has tag value metric data
+                    seekKey_.clear();
+                    seekKey_.append(1, metric_type);
+                    PutVarint32(&seekKey_, metric);
+                    seekKey_.append(1, readBaseTime);
+                    seekKey_.append(1, minTagValueLen);
+                    skip();
+                    continue;
                 }
                 if (hasFilter_ && filterTag(&key, maxTagValueLen)) {
                     if (enableLog) {
