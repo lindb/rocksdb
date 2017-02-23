@@ -273,6 +273,10 @@ namespace rocksdb {
                     finish_ = true;//key has tag, but query no tag metric
                     break;
                 }
+                if (minTagValueLen > 0 && maxTagValueLen == 0) {
+                    finish_ = true;//key no tag, but query has tag metric
+                    break;
+                }
                 if (hasFilter_ && filterTag(&key, maxTagValueLen)) {
                     if (enableLog) {
                         Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "skip key : %s",
@@ -410,7 +414,7 @@ namespace rocksdb {
 
         void aggApdex(Slice *value) {
             ApdexMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
-                                 (uint32_t) value->size(), &tempResult_);
+                               (uint32_t) value->size(), &tempResult_);
             resultSet_ = tempResult_;
             tempResult_.clear();
         }
