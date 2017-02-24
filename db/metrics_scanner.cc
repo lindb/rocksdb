@@ -4,10 +4,11 @@
 #include <iostream>
 #include <utilities/tsdb/CounterMerger.h>
 #include <utilities/tsdb/GaugeMerger.h>
-#include <utilities/tsdb/PercentMerger.h>
+#include <utilities/tsdb/RatioMerger.h>
 #include <utilities/tsdb/TSDB.h>
 #include <utilities/tsdb/ApdexMerger.h>
 #include <utilities/tsdb/TimerMerger.h>
+#include <utilities/tsdb/PayloadMerger.h>
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
@@ -349,16 +350,26 @@ namespace rocksdb {
                     readValueSize_ += value.size();
                 }
                 if (metric_type == TSDB::METRIC_TYPE_COUNTER) {
-                    aggCounter(&value);
+                    CounterMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+                                         (uint32_t) value.size(), &tempResult_);
                 } else if (metric_type == TSDB::METRIC_TYPE_GAUGE) {
-                    aggGauge(&value);
-                } else if (metric_type == TSDB::METRIC_TYPE_PERCENT) {
-                    aggPercent(&value);
+                    GaugeMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+                                       (uint32_t) value.size(), &tempResult_);
+                } else if (metric_type == TSDB::METRIC_TYPE_RATIO) {
+                    RatioMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+                                       (uint32_t) value.size(), &tempResult_);
                 } else if (metric_type == TSDB::METRIC_TYPE_TIMER) {
-                    aggTimer(&value);
+                    TimerMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+                                       (uint32_t) value.size(), &tempResult_);
                 } else if (metric_type == TSDB::METRIC_TYPE_APDEX) {
-                    aggApdex(&value);
+                    ApdexMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+                                       (uint32_t) value.size(), &tempResult_);
+                } else if (metric_type == TSDB::METRIC_TYPE_PAYLOAD) {
+                    PayloadMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+                                       (uint32_t) value.size(), &tempResult_);
                 }
+                resultSet_ = tempResult_;
+                tempResult_.clear();
                 //if current hour scan not finish, move to next row
                 if (!finish_) {
                     if (enableLog) {
@@ -395,43 +406,6 @@ namespace rocksdb {
         }
 
     private:
-
-        void aggCounter(Slice *value) {
-            CounterMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
-                                 (uint32_t) value->size(), &tempResult_);
-            resultSet_ = tempResult_;
-            tempResult_.clear();
-        }
-
-        void aggGauge(Slice *value) {
-            GaugeMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
-                               (uint32_t) value->size(), &tempResult_);
-            resultSet_ = tempResult_;
-            tempResult_.clear();
-        }
-
-        void aggPercent(Slice *value) {
-            PercentMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
-                                 (uint32_t) value->size(), &tempResult_);
-            resultSet_ = tempResult_;
-            tempResult_.clear();
-        }
-
-
-        void aggApdex(Slice *value) {
-            ApdexMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
-                               (uint32_t) value->size(), &tempResult_);
-            resultSet_ = tempResult_;
-            tempResult_.clear();
-        }
-
-        void aggTimer(Slice *value) {
-            TimerMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value->data(),
-                               (uint32_t) value->size(), &tempResult_);
-            resultSet_ = tempResult_;
-            tempResult_.clear();
-        }
-
         void doGroupBy(uint32_t tagName, uint32_t tagValue) {
             if (groupFoundCount_ >= groupByCount_) {
                 return;

@@ -5,10 +5,11 @@
 #include <memory>
 #include <utilities/tsdb/CounterMerger.h>
 #include "utilities/tsdb/GaugeMerger.h"
-#include "utilities/tsdb/PercentMerger.h"
+#include "utilities/tsdb/RatioMerger.h"
 #include <utilities/tsdb/TSDB.h>
 #include <utilities/tsdb/ApdexMerger.h>
 #include <utilities/tsdb/TimerMerger.h>
+#include <utilities/tsdb/PayloadMerger.h>
 
 #include "MetricMergeOperator.h"
 
@@ -47,8 +48,8 @@ namespace rocksdb {
                                      value.data(),
                                      (uint32_t) value.size(),
                                      new_value);
-            } else if (metricType == TSDB::METRIC_TYPE_PERCENT) {
-                PercentMerger::merge(existing_value->data(),
+            } else if (metricType == TSDB::METRIC_TYPE_RATIO) {
+                RatioMerger::merge(existing_value->data(),
                                      (uint32_t) existing_value->size(),
                                      value.data(),
                                      (uint32_t) value.size(),
@@ -59,6 +60,12 @@ namespace rocksdb {
                                      value.data(),
                                      (uint32_t) value.size(),
                                      new_value);
+            }else if (metricType == TSDB::METRIC_TYPE_PAYLOAD) {
+                PayloadMerger::merge(existing_value->data(),
+                                   (uint32_t) existing_value->size(),
+                                   value.data(),
+                                   (uint32_t) value.size(),
+                                   new_value);
             }
         }
         return true;

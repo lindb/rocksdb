@@ -7,7 +7,7 @@
 #include "string"
 
 namespace rocksdb {
-    class PercentMerger {
+    class RatioMerger {
     public:
         static void merge(
                 const char *existing_value,

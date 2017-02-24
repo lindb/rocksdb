@@ -20,8 +20,9 @@ namespace rocksdb {
         static const char METRIC_TYPE_GAUGE;
         static const char METRIC_TYPE_TIMER;
         static const char METRIC_TYPE_COUNTER;
-        static const char METRIC_TYPE_PERCENT;
+        static const char METRIC_TYPE_RATIO;
         static const char METRIC_TYPE_APDEX;
+        static const char METRIC_TYPE_PAYLOAD;
 
         static constexpr uint32_t kBitsForFirstTimestamp = 16;
         static constexpr uint32_t kLeadingZerosLengthBits = 6;

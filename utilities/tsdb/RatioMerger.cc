@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include "PercentMerger.h"
+#include "RatioMerger.h"
 #include "TimeSeriesStreamReader.h"
 #include "TimeSeriesStreamWriter.h"
 
 namespace rocksdb {
-    void PercentMerger::merge(
+    void RatioMerger::merge(
             const char *existing_value,
             const uint32_t existing_size,
             const char *value,
