@@ -286,8 +286,9 @@ set(SOURCES
         utilities/tsdb/ApdexMerger.cc
         utilities/tsdb/CounterMerger.cc
         utilities/tsdb/GaugeMerger.cc
-        utilities/tsdb/PercentMerger.cc
+        utilities/tsdb/RatioMerger.cc
         utilities/tsdb/TimerMerger.cc
+        utilities/tsdb/PayloadMerger.cc
         utilities/tsdb/TimeSeriesStreamReader.cc
         utilities/tsdb/TimeSeriesStreamWriter.cc
         utilities/tsdb/TSDB.cc
