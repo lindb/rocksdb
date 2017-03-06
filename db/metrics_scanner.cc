@@ -9,6 +9,7 @@
 #include <utilities/tsdb/ApdexMerger.h>
 #include <utilities/tsdb/TimerMerger.h>
 #include <utilities/tsdb/PayloadMerger.h>
+#include <utilities/tsdb/HistogramMerger.h>
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
@@ -367,6 +368,9 @@ namespace rocksdb {
                 } else if (metric_type == TSDB::METRIC_TYPE_PAYLOAD) {
                     PayloadMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
                                        (uint32_t) value.size(), &tempResult_);
+                } else if (metric_type == TSDB::METRIC_TYPE_HISTOGRAM) {
+                    HistogramMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+                                         (uint32_t) value.size(), &tempResult_);
                 }
                 resultSet_ = tempResult_;
                 tempResult_.clear();

@@ -161,6 +161,7 @@ LIB_SOURCES =                                                   \
   utilities/tsdb/RatioMerger.cc   				                \
   utilities/tsdb/PayloadMerger.cc   				            \
   utilities/tsdb/TimerMerger.cc   				                \
+  utilities/tsdb/HistogramMerger.cc   				                \
   utilities/tsdb/TSDB.cc   					                    \
   utilities/tsdb/TimeSeriesStreamReader.cc   			        \
   utilities/tsdb/TimeSeriesStreamWriter.cc   			        \
