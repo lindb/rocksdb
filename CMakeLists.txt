@@ -288,6 +288,7 @@ set(SOURCES
         utilities/tsdb/GaugeMerger.cc
         utilities/tsdb/RatioMerger.cc
         utilities/tsdb/TimerMerger.cc
+        utilities/tsdb/HistogramMerger.cc
         utilities/tsdb/PayloadMerger.cc
         utilities/tsdb/TimeSeriesStreamReader.cc
         utilities/tsdb/TimeSeriesStreamWriter.cc

@@ -10,6 +10,7 @@
 #include <utilities/tsdb/ApdexMerger.h>
 #include <utilities/tsdb/TimerMerger.h>
 #include <utilities/tsdb/PayloadMerger.h>
+#include <utilities/tsdb/HistogramMerger.h>
 
 #include "MetricMergeOperator.h"
 
@@ -66,6 +67,12 @@ namespace rocksdb {
                                    value.data(),
                                    (uint32_t) value.size(),
                                    new_value);
+            }else if (metricType == TSDB::METRIC_TYPE_PAYLOAD) {
+                HistogramMerger::merge(existing_value->data(),
+                                     (uint32_t) existing_value->size(),
+                                     value.data(),
+                                     (uint32_t) value.size(),
+                                     new_value);
             }
         }
         return true;
