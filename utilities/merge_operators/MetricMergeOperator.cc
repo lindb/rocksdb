@@ -67,7 +67,7 @@ namespace rocksdb {
                                    value.data(),
                                    (uint32_t) value.size(),
                                    new_value);
-            }else if (metricType == TSDB::METRIC_TYPE_PAYLOAD) {
+            }else if (metricType == TSDB::METRIC_TYPE_HISTOGRAM) {
                 HistogramMerger::merge(existing_value->data(),
                                      (uint32_t) existing_value->size(),
                                      value.data(),
