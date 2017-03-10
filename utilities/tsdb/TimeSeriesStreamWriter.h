@@ -8,21 +8,36 @@
 namespace rocksdb {
     //This class operates on a stream writer of TimeSeries Data(timestamp, value)
     class TimeSeriesStreamWriter {
+    private:
+        std::string *data_;
+
+        uint16_t prevTimestamp_ = 0;
+        int32_t prevTimestampDelta_ = 0;
+
+        int64_t previousValue_ = 0;
+        uint32_t previousValueLeadingZeros_ = 0x7fffffff;
+        uint32_t previousValueTrailingZeros_ = 0;
+
+        uint32_t count_ = 0;
+        uint8_t bitsAvailable_ = 8;
+        char cur_ = 0;
     public:
         TimeSeriesStreamWriter() {}
 
         TimeSeriesStreamWriter(std::string *data) {}
 
-        virtual ~TimeSeriesStreamWriter() {}
+        ~TimeSeriesStreamWriter() {}
 
-        virtual void append(uint16_t timestamp, int64_t value) = 0;
+        void append(uint16_t timestamp, int64_t value);
 
-        virtual void appendTimestamp(uint16_t timestamp) = 0;
+        void appendTimestamp(uint16_t timestamp);
 
-        virtual void appendValue(int64_t value) = 0;
+        void appendValue(int64_t value);
 
-        virtual void flush() = 0;
+        void flush();
+
+        void addValueToBitString(int64_t value, uint32_t bitsInValue);
+
+        void flipByte();
     };
-
-    extern TimeSeriesStreamWriter *NewTimeSeriesStreamWriter(std::string *data);
 }
