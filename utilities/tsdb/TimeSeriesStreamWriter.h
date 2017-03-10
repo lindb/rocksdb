@@ -22,9 +22,9 @@ namespace rocksdb {
         uint8_t bitsAvailable_ = 8;
         char cur_ = 0;
     public:
-        TimeSeriesStreamWriter() {}
-
-        TimeSeriesStreamWriter(std::string *data) {}
+        TimeSeriesStreamWriter(std::string *data) {
+            data_ = data;
+        }
 
         ~TimeSeriesStreamWriter() {}
 

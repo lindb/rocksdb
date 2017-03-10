@@ -22,9 +22,19 @@ namespace rocksdb {
         uint32_t pos_ = 0;
         char cur_;
     public:
-        TimeSeriesStreamReader() {}
-
-        TimeSeriesStreamReader(const char *data, const uint32_t size) {}
+        TimeSeriesStreamReader(const char *data, const uint32_t size) {
+            data_ = data;
+            size_ = size;
+            if (size_ >= 4) {
+                count_ = ((static_cast<uint32_t>(static_cast<unsigned char>(data_[size_ - 1])))
+                          | (static_cast<uint32_t>(static_cast<unsigned char>(data_[size_ - 2])) << 8)
+                          | (static_cast<uint32_t>(static_cast<unsigned char>(data_[size_ - 3])) << 16)
+                          | (static_cast<uint32_t>(static_cast<unsigned char>(data_[size_ - 4])) << 24));
+            }
+            if (count_ > 0) {
+                flipByte();
+            }
+        }
 
         ~TimeSeriesStreamReader() {}
 

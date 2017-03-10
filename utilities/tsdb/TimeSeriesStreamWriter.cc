@@ -7,9 +7,6 @@
 #include "TSDB.h"
 
 namespace rocksdb {
-    TimeSeriesStreamWriter::TimeSeriesStreamWriter(std::string *data) {
-        data_ = data;
-    }
 
     void TimeSeriesStreamWriter::append(uint16_t timestamp, int64_t value) {
         appendTimestamp(timestamp);
@@ -82,7 +79,7 @@ namespace rocksdb {
       *    then length of the XORred value is stored in the next  6 bits and
       *    finally the XORred value is stored.
       */
-    void TimeSeriesStreamWriter::appendValue(int64_t value)  {
+    void TimeSeriesStreamWriter::appendValue(int64_t value) {
         int64_t xorWithPrevious = previousValue_ ^value;
 
         if (xorWithPrevious == 0) {
