@@ -30,7 +30,7 @@ namespace rocksdb {
             // No existing_value. Set *new_value = value
             new_value->assign(value.data(), value.size());
         } else {
-            char metricType = key[0];
+            char metricType = key[1];
             if (metricType == TSDB::METRIC_TYPE_COUNTER) {
                 CounterMerger::merge(existing_value->data(),
                                      (uint32_t) existing_value->size(),
@@ -45,34 +45,34 @@ namespace rocksdb {
                                    new_value);
             } else if (metricType == TSDB::METRIC_TYPE_TIMER) {
                 TimerMerger::merge(existing_value->data(),
-                                     (uint32_t) existing_value->size(),
-                                     value.data(),
-                                     (uint32_t) value.size(),
-                                     new_value);
-            } else if (metricType == TSDB::METRIC_TYPE_RATIO) {
-                RatioMerger::merge(existing_value->data(),
-                                     (uint32_t) existing_value->size(),
-                                     value.data(),
-                                     (uint32_t) value.size(),
-                                     new_value);
-            } else if (metricType == TSDB::METRIC_TYPE_APDEX) {
-                ApdexMerger::merge(existing_value->data(),
-                                     (uint32_t) existing_value->size(),
-                                     value.data(),
-                                     (uint32_t) value.size(),
-                                     new_value);
-            }else if (metricType == TSDB::METRIC_TYPE_PAYLOAD) {
-                PayloadMerger::merge(existing_value->data(),
                                    (uint32_t) existing_value->size(),
                                    value.data(),
                                    (uint32_t) value.size(),
                                    new_value);
-            }else if (metricType == TSDB::METRIC_TYPE_HISTOGRAM) {
-                HistogramMerger::merge(existing_value->data(),
+            } else if (metricType == TSDB::METRIC_TYPE_RATIO) {
+                RatioMerger::merge(existing_value->data(),
+                                   (uint32_t) existing_value->size(),
+                                   value.data(),
+                                   (uint32_t) value.size(),
+                                   new_value);
+            } else if (metricType == TSDB::METRIC_TYPE_APDEX) {
+                ApdexMerger::merge(existing_value->data(),
+                                   (uint32_t) existing_value->size(),
+                                   value.data(),
+                                   (uint32_t) value.size(),
+                                   new_value);
+            } else if (metricType == TSDB::METRIC_TYPE_PAYLOAD) {
+                PayloadMerger::merge(existing_value->data(),
                                      (uint32_t) existing_value->size(),
                                      value.data(),
                                      (uint32_t) value.size(),
                                      new_value);
+            } else if (metricType == TSDB::METRIC_TYPE_HISTOGRAM) {
+                HistogramMerger::merge(existing_value->data(),
+                                       (uint32_t) existing_value->size(),
+                                       value.data(),
+                                       (uint32_t) value.size(),
+                                       new_value);
             }
         }
         return true;

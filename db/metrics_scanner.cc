@@ -169,9 +169,9 @@ namespace rocksdb {
                 iter_ = db_->NewIterator(read_options_);
             }
             seekKey_.clear();
+            seekKey_.append(1, nextBaseTime);
             seekKey_.append(1, metric_type);
             PutVarint32(&seekKey_, metric);
-            seekKey_.append(1, nextBaseTime);
             seekKey_.append(1, minTagValueLen);
             if (enableLog) {
                 Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time skip key : %s",
@@ -185,26 +185,13 @@ namespace rocksdb {
                     Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time read key : %s",
                         key.ToString(true).data());
                 }
-                char metricType = key[0];
-                key.remove_prefix(1);//remove metric type
-                if (metric_type != metricType) {
-                    //read metric type != query metric type, finish scan
-                    close_ = true;
-                    return false;
-                }
-                GetVarint32(&key, &readMetric_);
-                if (readMetric_ != metric) {
-                    //read metric != query metric, finish scan
-                    close_ = true;
-                    return false;
-                }
                 currentBaseTime_ = (uint8_t) key[0];
                 key.remove_prefix(1);//remove base time
                 if (enableLog) {
                     Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time is : %d", currentBaseTime_);
                 }
                 if (currentBaseTime_ > end) {
-                    //finish scan, because hour > end hour
+                    //finish scan, because current base time > query end base time
                     close_ = true;
                     return false;
                 }
@@ -241,23 +228,29 @@ namespace rocksdb {
                     readKeySize_ += key.size();
                     readCount_++;
                 }
+                uint8_t readBaseTime = (uint8_t) key[0];
+                key.remove_prefix(1);
+
+                if (readBaseTime > end) {
+                    close_ = true;
+                    break;
+                }
+
+                if (readBaseTime != currentBaseTime_) {
+                    finish_ = true;
+                    break;
+                }
+
                 char metricType = key[0];
                 key.remove_prefix(1);//remove metric type
                 if (metric_type != metricType) {
                     //read metric type != query metric type, finish scan
-                    close_ = true;
+                    finish_ = true;
                     break;
                 }
                 GetVarint32(&key, &readMetric_);
                 if (readMetric_ != metric) {
                     //read metric != query metric, finish scan
-                    close_ = true;
-                    break;
-                }
-
-                uint8_t readBaseTime = (uint8_t) key[0];
-                key.remove_prefix(1);
-                if (readBaseTime != currentBaseTime_) {
                     finish_ = true;
                     break;
                 }
@@ -278,9 +271,9 @@ namespace rocksdb {
                 if (minTagValueLen > 0 && maxTagValueLen == 0) {
                     //maybe can skip to has tag value metric data
                     seekKey_.clear();
+                    seekKey_.append(1, readBaseTime);
                     seekKey_.append(1, metric_type);
                     PutVarint32(&seekKey_, metric);
-                    seekKey_.append(1, readBaseTime);
                     seekKey_.append(1, minTagValueLen);
                     skip();
                     continue;
@@ -367,10 +360,10 @@ namespace rocksdb {
                                        (uint32_t) value.size(), &tempResult_);
                 } else if (metric_type == TSDB::METRIC_TYPE_PAYLOAD) {
                     PayloadMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
-                                       (uint32_t) value.size(), &tempResult_);
+                                         (uint32_t) value.size(), &tempResult_);
                 } else if (metric_type == TSDB::METRIC_TYPE_HISTOGRAM) {
                     HistogramMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
-                                         (uint32_t) value.size(), &tempResult_);
+                                           (uint32_t) value.size(), &tempResult_);
                 }
                 resultSet_ = tempResult_;
                 tempResult_.clear();
@@ -548,9 +541,9 @@ namespace rocksdb {
 
         void copyHintPrefix(Slice *key, uint32_t pos, char maxTagValue) {
             seekKey_.clear();
+            seekKey_.append(1, (char) currentBaseTime_);
             seekKey_.append(1, metric_type);
             PutVarint32(&seekKey_, metric);
-            seekKey_.append(1, (char) currentBaseTime_);
             seekKey_.append(1, maxTagValue);
             uint32_t len = key->size() - pos;
             for (uint32_t i = 0; i < len; i++) {
@@ -568,49 +561,6 @@ namespace rocksdb {
             }
             aggCount_ = 0;
         }
-
-//        void dumpResult(char point_type, DataPoint *aggMap) {
-//            if (nullptr == aggMap) {
-//                return;
-//            }
-//            std::string aggResult = "";
-//            for (uint32_t i = 0; i < pointCount; i++) {
-//                DataPoint *point = &aggMap[i];
-//                if (point->hasValue) {
-//                    PutVarint32Varint64(&aggResult, i, point->value);
-//                    point->hasValue = false;
-//                }
-//            }
-//            if (aggResult.size() > 0) {
-//                resultSet_.append(1, point_type);
-//                PutVarint32(&resultSet_, (uint32_t) aggResult.size());
-//                resultSet_.append(aggResult);
-//            }
-//        }
-//
-//        void agg(char point_type, size_t len, Slice *value, DataPoint *aggMap) {
-//            size_t size = value->size();
-//            while (size - value->size() < len) {
-//                int32_t slot;
-//                GetVarint32(value, (uint32_t *) &slot);
-//                int64_t val;
-//                GetVarint64(value, (uint64_t *) &val);
-//
-//                DataPoint *point = &aggMap[slot];
-//                if (!point->hasValue) {
-//                    point->value = val;
-//                    point->hasValue = true;
-//                } else {
-//                    if (point_type == point_type_sum || point_type == point_type_count) {
-//                        point->value += val;
-//                    } else if (point_type == point_type_min) {
-//                        point->value = point->value > val ? val : point->value;
-//                    } else if (point_type == point_type_max) {
-//                        point->value = point->value < val ? val : point->value;
-//                    }
-//                }
-//            }
-//        }
 
         /**
         *  find smallest value index in tag values, which >= tag value
