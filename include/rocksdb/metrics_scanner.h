@@ -4,11 +4,12 @@
 
 #ifndef ROCKSDB_METRICS_SCANNER_H
 #define ROCKSDB_METRICS_SCANNER_H
-
 #include "string"
+
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
 #include "rocksdb/slice.h"
+#include "util/coding.h"
 
 namespace rocksdb {
     class MetricsScanner {
@@ -41,7 +42,7 @@ namespace rocksdb {
 
         virtual void next()  = 0;
 
-        virtual bool hasNextBaseTime(char nextBaseTime) = 0;
+        virtual bool hasNextBaseTime(char nextBaseTime, ColumnFamilyHandle* columnFamilyHandle) = 0;
 
         virtual bool hasNext() = 0;
 

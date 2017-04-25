@@ -154,7 +154,7 @@ namespace rocksdb {
             }
         }
 
-        virtual bool hasNextBaseTime(char nextBaseTime) override {
+        virtual bool hasNextBaseTime(char nextBaseTime, ColumnFamilyHandle *columnFamilyHandle) override {
             DBOptions dbOptions = db_->GetDBOptions();
             if (enableLog) {
                 Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time :%d %d %d %s %s", start, end,
@@ -165,9 +165,10 @@ namespace rocksdb {
                 return false;
             }
             finish_ = false;
-            if (nullptr == iter_) {
-                iter_ = db_->NewIterator(read_options_);
+            if (nullptr != iter_) {
+                delete iter_;
             }
+            iter_ = db_->NewIterator(read_options_, columnFamilyHandle);
             seekKey_.clear();
             seekKey_.append(1, nextBaseTime);
             seekKey_.append(1, metric_type);
