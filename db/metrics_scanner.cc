@@ -377,6 +377,10 @@ namespace rocksdb {
                 }
             }
 
+            if (!iter_->Valid()) {
+                finish_ = true;
+            }
+
             if (aggCount_ > 0) {
                 dumpAllResult();
                 if (enableLog) {
