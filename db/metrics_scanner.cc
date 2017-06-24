@@ -10,6 +10,7 @@
 #include <utilities/tsdb/TimerMerger.h>
 #include <utilities/tsdb/PayloadMerger.h>
 #include <utilities/tsdb/HistogramMerger.h>
+#include <utilities/tsdb/Aggregator.cc>
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
@@ -33,6 +34,7 @@ namespace rocksdb {
         DB *db_;
         Env *env_;
         ReadOptions read_options_;
+        Aggregator *aggregator_ = nullptr;
 
         std::string seekKey_ = "";
         uint32_t readMetric_ = 0;
@@ -91,6 +93,9 @@ namespace rocksdb {
             }
             if (nullptr != curGroupByKey_) {
                 delete[] curGroupByKey_;
+            }
+            if (nullptr != aggregator_) {
+                delete aggregator_;
             }
         }
 
@@ -167,6 +172,11 @@ namespace rocksdb {
             finish_ = false;
             if (nullptr != iter_) {
                 delete iter_;
+            }
+            if (nullptr == aggregator_) {
+                if (metric_type == TSDB::METRIC_TYPE_HISTOGRAM) {
+                    aggregator_ = new HistogramAggregator();
+                }
             }
             iter_ = db_->NewIterator(read_options_, columnFamilyHandle);
             seekKey_.clear();
@@ -363,8 +373,9 @@ namespace rocksdb {
                     PayloadMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
                                          (uint32_t) value.size(), &tempResult_);
                 } else if (metric_type == TSDB::METRIC_TYPE_HISTOGRAM) {
-                    HistogramMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
-                                           (uint32_t) value.size(), &tempResult_);
+//                    HistogramMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+//                                           (uint32_t) value.size(), &tempResult_);
+                    aggregator_->merge(value.data(), value.size());
                 }
                 resultSet_ = tempResult_;
                 tempResult_.clear();
@@ -565,6 +576,7 @@ namespace rocksdb {
                 }
             }
             aggCount_ = 0;
+            resultSet_ = aggregator_->dumpResult();
         }
 
         /**
