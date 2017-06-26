@@ -68,3 +68,6 @@ LOG
 db_logs/
 tp2/
 fbcode/
+fbcode
+
+cmake-build-debug/

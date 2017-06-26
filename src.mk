@@ -335,6 +335,8 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/loggerjnicallback.cc                          \
   java/rocksjni/memtablejni.cc                                \
   java/rocksjni/merge_operator.cc                             \
+  java/rocksjni/optimistic_transaction_db.cc                  \
+  java/rocksjni/optimistic_transaction_options.cc             \
   java/rocksjni/options.cc                                    \
   java/rocksjni/ratelimiterjni.cc                             \
   java/rocksjni/remove_emptyvalue_compactionfilterjni.cc      \
@@ -344,7 +346,13 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/snapshot.cc                                   \
   java/rocksjni/statistics.cc                                 \
   java/rocksjni/table.cc                                      \
+  java/rocksjni/transaction.cc                                \
+  java/rocksjni/transaction_db.cc                             \
+  java/rocksjni/transaction_options.cc                        \
+  java/rocksjni/transaction_db_options.cc                     \
   java/rocksjni/transaction_log.cc                            \
+  java/rocksjni/transaction_notifier.cc                       \
+  java/rocksjni/transaction_notifier_jnicallback.cc           \
   java/rocksjni/ttl.cc                                        \
   java/rocksjni/write_batch.cc                                \
   java/rocksjni/writebatchhandlerjnicallback.cc               \

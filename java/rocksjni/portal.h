@@ -22,6 +22,7 @@
 #include "rocksdb/utilities/write_batch_with_index.h"
 #include "rocksjni/comparatorjnicallback.h"
 #include "rocksjni/loggerjnicallback.h"
+#include "rocksjni/transaction_notifier_jnicallback.h"
 #include "rocksjni/writebatchhandlerjnicallback.h"
 
 // Remove macro on windows
@@ -356,6 +357,26 @@ class ComparatorOptionsJni : public RocksDBNativeClass<
     return RocksDBNativeClass::getJClass(env,
         "org/rocksdb/ComparatorOptions");
   }
+};
+
+// The portal class for org.rocksdb.AbstractTransactionNotifier
+class AbstractTransactionNotifierJni : public RocksDBNativeClass<
+        const rocksdb::TransactionNotifierJniCallback*,
+        AbstractTransactionNotifierJni> {
+public:
+    static jclass getJClass(JNIEnv* env) {
+      return RocksDBNativeClass::getJClass(env,
+                                           "org/rocksdb/AbstractTransactionNotifier");
+    }
+
+    // Get the java method `snapshotCreated`
+    // of org.rocksdb.AbstractTransactionNotifier.
+    static jmethodID getSnapshotCreatedMethodId(JNIEnv* env) {
+      static jmethodID mid = env->GetMethodID(
+              getJClass(env), "snapshotCreated", "(J)V");
+      assert(mid != nullptr);
+      return mid;
+    }
 };
 
 // The portal class for org.rocksdb.AbstractComparator
