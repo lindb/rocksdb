@@ -10,11 +10,15 @@
 #include <utilities/tsdb/TimerMerger.h>
 #include <utilities/tsdb/PayloadMerger.h>
 #include <utilities/tsdb/HistogramMerger.h>
-#include <utilities/tsdb/Aggregator.cc>
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
 #include "util/coding.h"
+#include "utilities/tsdb/TimeSeriesStreamReader.h"
+#include "utilities/tsdb/TimeSeriesStreamWriter.h"
+
+#include <iostream>
+#include <utilities/tsdb/HistogramMerger.h>
 
 struct TagFilter {
     uint32_t count = 0;
@@ -28,13 +32,195 @@ struct TagFilter {
     }
 };
 
+
 namespace rocksdb {
+    class LinDBHistogram {
+    public:
+        int32_t slot = -1;
+        int64_t type = -1;
+        int64_t baseNumber = 0;
+        int64_t maxSlot = 0;
+        int64_t min = 1;
+        int64_t max = 1;
+        int64_t sum = 0;
+        int64_t count = 0;
+        int64_t *values = nullptr;
+        LinDBHistogram *prev_ = nullptr;
+        LinDBHistogram *next_ = nullptr;
+
+        LinDBHistogram() {
+            min = min << 62;
+            max = (max << 63) >> 63;
+        }
+
+        ~LinDBHistogram() {
+            if (nullptr != values) {
+                delete[] values;
+            }
+            if (nullptr != next_) {
+                delete next_;
+            }
+        }
+    };
+
+    class HistogramAggregator {
+    private:
+        std::string resultSet_ = "";
+        LinDBHistogram *histograms_ = nullptr;
+    public:
+        HistogramAggregator() {}
+
+        virtual ~HistogramAggregator() {
+            if (nullptr != histograms_) {
+                delete histograms_;
+            }
+        }
+
+        std::string dumpResult() {
+            resultSet_.clear();
+            if (nullptr == histograms_) {
+                return resultSet_;
+            }
+            TimeSeriesStreamWriter writer(&resultSet_);
+            LinDBHistogram *histogram = histograms_;
+            while (nullptr != histogram) {
+                writer.appendTimestamp(histogram->slot);//slot
+                writer.appendValue(histogram->type);//type
+                writer.appendValue(histogram->baseNumber);//baseNumber
+                writer.appendValue(histogram->maxSlot);//max value slot
+                writer.appendValue(histogram->min);//min
+                writer.appendValue(histogram->max);//max
+                writer.appendValue(histogram->sum);//sum
+//                std::cout << "C++ dumpResult  slot: " << histogram->slot << ", type: " << histogram->type
+//                          << ", baseNumber: "
+//                          << histogram->baseNumber
+//                          << ", maxSlot: " << histogram->maxSlot << ", min: " << histogram->min << ", max: "
+//                          << histogram->max << ", sum : " << histogram->sum << " values[0] :"
+//                          << histogram->values[0]
+//                          << std::endl;
+                for (int64_t i = 0; i < histogram->maxSlot; ++i) {// values
+                    writer.appendValue(histogram->values[i]);
+//                    std::cout << " values[" << i << "] :"
+//                              << histogram->values[i]
+//                              << std::endl;
+                }
+                histogram = histogram->next_;
+            }
+            writer.flush();
+            delete histograms_;
+            histograms_ = nullptr;
+            return resultSet_;
+        }
+
+        LinDBHistogram *findOrCreateLinDBHistogram(LinDBHistogram *linDBHistogram, const int32_t slot, bool &existing) {
+            if (nullptr == linDBHistogram) {
+                if (nullptr == histograms_) {
+                    histograms_ = new LinDBHistogram();
+                    histograms_->slot = slot;
+                    existing = false;
+//                    std::cout << "C++  is existing : " << existing << std::endl;
+                    return histograms_;
+                }
+                linDBHistogram = histograms_;
+            }
+            LinDBHistogram *index = linDBHistogram;
+            while (slot > index->slot && nullptr != index->next_) {
+                index = index->next_;
+            }
+            if (slot == index->slot) {
+//                std::cout << "C++  is existing : " << existing << std::endl;
+                existing = true;
+                return index;
+            } else if (slot < index->slot) {
+                linDBHistogram = new LinDBHistogram();
+                linDBHistogram->next_ = index;
+                if (nullptr != index->prev_) {
+                    index->prev_->next_ = linDBHistogram;
+                    linDBHistogram->prev_ = index->prev_;
+                }
+                index->prev_ = linDBHistogram;
+                existing = false;
+                return linDBHistogram;
+            } else {
+                linDBHistogram = new LinDBHistogram();
+                linDBHistogram->prev_ = index;
+                index->next_ = linDBHistogram;
+                existing = false;
+                return linDBHistogram;
+            }
+
+        }
+
+        void merge(const char *value, const uint32_t value_size) {
+            TimeSeriesStreamReader newStream(value, value_size);
+            int32_t slot = newStream.getNextTimestamp();
+            LinDBHistogram *histogram = nullptr;
+            while (slot != -1) {
+                bool existing = true;
+//                std::cout << "C++  frist crate : " << existing << "  slot : " << slot << std::endl;
+                histogram = findOrCreateLinDBHistogram(histogram, slot, existing);
+//                std::cout << "C++  is crate : " << existing << std::endl;
+                int64_t type = newStream.getNextValue();//type
+                int64_t baseNumber = newStream.getNextValue();//baseNumber
+                int64_t max_slot = newStream.getNextValue();//maxSlot
+                int64_t min = newStream.getNextValue();//min
+                int64_t max = newStream.getNextValue();//max
+                int64_t sum = newStream.getNextValue();//sum
+//                std::cout << "C++  merge  slot: " << slot << ", type: " << type << ", baseNumber: " << baseNumber
+//                          << ", maxSlot: " << max_slot << ", min: " << min << ", max: " << max << ", sum : " << sum
+//                          << std::endl;
+                if (!existing) {
+                    histogram->slot = slot;
+                    histogram->type = type;
+                    histogram->baseNumber = baseNumber;
+                    histogram->maxSlot = max_slot;
+                    histogram->min = min;
+                    histogram->max = max;
+                    histogram->sum = sum;
+                    histogram->values = new int64_t[max_slot];
+                    for (int i = 0; i < max_slot; ++i) {
+                        histogram->values[i] = {newStream.getNextValue()};// value
+//                        std::cout << " values[" << i << "] :"
+//                                  << histograms_->values[i]
+//                                  << std::endl;
+                    }
+                } else if (type != histogram->type || baseNumber != histogram->baseNumber ||
+                           max_slot != histogram->maxSlot) {
+                    for (int64_t i = 0; i < max_slot; ++i) {
+                        newStream.getNextValue();// value
+                    }
+                } else {
+                    if (histogram->min > min) {
+                        histogram->min = min;
+                    }
+                    if (histogram->max < max) {
+                        histogram->max = max;
+                    }
+                    histogram->sum += sum;
+                    for (int64_t i = 0; i < max_slot; ++i) {
+                        histogram->values[i] += newStream.getNextValue();//value
+                    }
+                }
+//                std::cout << "C++ merge after slot: " << histogram->slot << ", type: " << histogram->type
+//                          << ", baseNumber: "
+//                          << histogram->baseNumber
+//                          << ", maxSlot: " << histogram->maxSlot << ", min: " << histogram->min << ", max: "
+//                          << histogram->max << ", sum : " << histogram->sum << " values[0] :"
+//                          << histogram->values[0]
+//                          << std::endl;
+                //reset new slot for next loop
+                slot = newStream.getNextTimestamp();
+            }
+
+        }
+    };
+
     class MetricsScannerImpl : public MetricsScanner {
     private:
         DB *db_;
         Env *env_;
         ReadOptions read_options_;
-        Aggregator *aggregator_ = nullptr;
+        HistogramAggregator *aggregator_ = nullptr;
 
         std::string seekKey_ = "";
         uint32_t readMetric_ = 0;
@@ -217,6 +403,7 @@ namespace rocksdb {
         }
 
         virtual void next() override {
+//            aggregator_ = new HistogramAggregator();
             //reset scan context for new loop
             resultSet_.clear();
             tempResult_.clear();
@@ -375,7 +562,8 @@ namespace rocksdb {
                 } else if (metric_type == TSDB::METRIC_TYPE_HISTOGRAM) {
 //                    HistogramMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
 //                                           (uint32_t) value.size(), &tempResult_);
-                    aggregator_->merge(value.data(), value.size());
+//                    std::cout << "C++  merge in counter " << std::endl;
+                    aggregator_->merge(value.data(), (uint32_t) value.size());
                 }
                 resultSet_ = tempResult_;
                 tempResult_.clear();
@@ -405,6 +593,7 @@ namespace rocksdb {
         }
 
         virtual Slice getResultSet() override {
+            resultSet_ = aggregator_->dumpResult();//here is keep the string, it is must
             return resultSet_;
         }
 
@@ -576,7 +765,6 @@ namespace rocksdb {
                 }
             }
             aggCount_ = 0;
-            resultSet_ = aggregator_->dumpResult();
         }
 
         /**
