@@ -1277,30 +1277,30 @@ jstring Java_org_rocksdb_Transaction_getName(JNIEnv* env, jobject jobj,
 jbyte Java_org_rocksdb_Transaction_getExecutionStatus(JNIEnv* env,
                                                       jobject jobj, jlong jhandle) {
     auto* txn = reinterpret_cast<rocksdb::Transaction*>(jhandle);
-    rocksdb::Transaction::ExecutionStatus exec_status = txn->exec_status_.load();
+    rocksdb::Transaction::TransactionState exec_status = txn->GetState();
     switch (exec_status) {
-        case rocksdb::Transaction::ExecutionStatus::STARTED:
+        case rocksdb::Transaction::TransactionState::STARTED:
             return 0x0;
 
-        case rocksdb::Transaction::ExecutionStatus::AWAITING_PREPARE:
+        case rocksdb::Transaction::TransactionState::AWAITING_PREPARE:
             return 0x1;
 
-        case rocksdb::Transaction::ExecutionStatus::PREPARED:
+        case rocksdb::Transaction::TransactionState::PREPARED:
             return 0x2;
 
-        case rocksdb::Transaction::ExecutionStatus::AWAITING_COMMIT:
+        case rocksdb::Transaction::TransactionState::AWAITING_COMMIT:
             return 0x3;
 
-        case rocksdb::Transaction::ExecutionStatus::COMMITED:
+        case rocksdb::Transaction::TransactionState::COMMITED:
             return 0x4;
 
-        case rocksdb::Transaction::ExecutionStatus::AWAITING_ROLLBACK:
+        case rocksdb::Transaction::TransactionState::AWAITING_ROLLBACK:
             return 0x5;
 
-        case rocksdb::Transaction::ExecutionStatus::ROLLEDBACK:
+        case rocksdb::Transaction::TransactionState::ROLLEDBACK:
             return 0x6;
 
-        case rocksdb::Transaction::ExecutionStatus::LOCKS_STOLEN:
+        case rocksdb::Transaction::TransactionState::LOCKS_STOLEN:
             return 0x7;
     }
 
