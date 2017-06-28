@@ -53,8 +53,8 @@ public class MetricsScanner extends RocksObject {
         end(nativeHandle_, end);
     }
 
-    public void setMinTagValueLen(int minTagValueLen){
-        minTagValueLen(nativeHandle_,(byte)minTagValueLen);
+    public void setMinTagValueLen(int minTagValueLen) {
+        minTagValueLen(nativeHandle_, (byte) minTagValueLen);
     }
 
     public void setTagFilters(byte[] tagFilters) {
@@ -73,8 +73,8 @@ public class MetricsScanner extends RocksObject {
         next(nativeHandle_);
     }
 
-    public boolean hasNextBaseTime(byte baseTime) {
-        return hasNextBaseTime(nativeHandle_, baseTime);
+    public boolean hasNextBaseTime(byte baseTime, ColumnFamilyHandle familyHandle) {
+        return hasNextBaseTime(nativeHandle_, baseTime, familyHandle.nativeHandle_);
     }
 
     public boolean hasNext() {
@@ -126,7 +126,7 @@ public class MetricsScanner extends RocksObject {
 
     private native void next(long handle);
 
-    private native boolean hasNextBaseTime(long handle, byte baseTime);
+    private native boolean hasNextBaseTime(long handle, byte baseTime, long columnFamilyHandle);
 
     private native boolean hasNext(long handle);
 

@@ -21,6 +21,7 @@ void Java_org_rocksdb_MetricsScanner_enableLog
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->enableLog = enableLog;
 }
+
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    start
@@ -31,6 +32,7 @@ void Java_org_rocksdb_MetricsScanner_enableProfiler
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->enableProfiler = enableProfiler;
 }
+
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    start
@@ -47,6 +49,7 @@ void Java_org_rocksdb_MetricsScanner_minTagValueLen
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->minTagValueLen = minTagValueLen;
 }
+
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    start
@@ -57,6 +60,7 @@ void Java_org_rocksdb_MetricsScanner_metric
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->metric = metric;
 }
+
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    startHour
@@ -100,16 +104,19 @@ void Java_org_rocksdb_MetricsScanner_next
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->next();
 }
+
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    hasNextBaseTime
  * Signature: (J)Z
  */
 jboolean Java_org_rocksdb_MetricsScanner_hasNextBaseTime
-        (JNIEnv *env, jobject jobj, jlong handle,jbyte baseTime) {
+        (JNIEnv *env, jobject jobj, jlong handle, jbyte baseTime, jlong columnFamilyHandle) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
-    return scanner->hasNextBaseTime(baseTime);
+    auto column_family_handle = reinterpret_cast<rocksdb::ColumnFamilyHandle *>(columnFamilyHandle);
+    return scanner->hasNextBaseTime(baseTime, column_family_handle);
 }
+
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    hasNext
@@ -179,6 +186,7 @@ jbyteArray Java_org_rocksdb_MetricsScanner_getStat
                             reinterpret_cast<const jbyte *>(value_slice.data()));
     return jkeyValue;
 }
+
 /*
  * Class:     org_rocksdb_MetricsScanner
  * Method:    setTagFilters
