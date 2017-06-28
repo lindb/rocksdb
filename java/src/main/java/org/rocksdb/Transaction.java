@@ -406,13 +406,7 @@ public class Transaction extends RocksObject {
    * {@link RocksDB#get(ColumnFamilyHandle, ReadOptions, byte[])}.
    *
    * If this transaction was created on a {@link TransactionDB}, an
-   * {@link RocksDBException} may be thrown with an accompanying {@link Status}
    * when:
-   *     {@link Status.Code#Busy} if there is a write conflict,
-   *     {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *     {@link Status.Code#TryAgain} if the memtable history size is not large
-   *         enough. See
-   *     {@link Status.Code#MergeInProgress} if merge operations cannot be
    *     resolved.
    *
    * @param readOptions Read options.
@@ -457,13 +451,7 @@ public class Transaction extends RocksObject {
    * {@link RocksDB#get(ReadOptions, byte[])}.
    *
    * If this transaction was created on a {@link TransactionDB}, an
-   * {@link RocksDBException} may be thrown with an accompanying {@link Status}
    * when:
-   *     {@link Status.Code#Busy} if there is a write conflict,
-   *     {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *     {@link Status.Code#TryAgain} if the memtable history size is not large
-   *         enough. See
-   *     {@link Status.Code#MergeInProgress} if merge operations cannot be
    *     resolved.
    *
    * @param readOptions Read options.
@@ -600,12 +588,7 @@ public class Transaction extends RocksObject {
    * these functions should always succeed.
    *
    * If this Transaction was created on a {@link TransactionDB}, an
-   * {@link RocksDBException} may be thrown with an accompanying {@link Status}
    * when:
-   *     {@link Status.Code#Busy} if there is a write conflict,
-   *     {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *     {@link Status.Code#TryAgain} if the memtable history size is not large
-   *         enough. See
    * @param columnFamilyHandle The column family to put the key/value into
    * @param key the specified key to be inserted.
    * @param value the value associated with the specified key.
@@ -628,12 +611,7 @@ public class Transaction extends RocksObject {
    * these functions should always succeed.
    *
    *  If this Transaction was created on a {@link TransactionDB}, an
-   *  {@link RocksDBException} may be thrown with an accompanying {@link Status}
    *  when:
-   *    {@link Status.Code#Busy} if there is a write conflict,
-   *    {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *    {@link Status.Code#TryAgain} if the memtable history size is not large
-   *       enough. See
    * @param key the specified key to be inserted.
    * @param value the value associated with the specified key.
    *
@@ -694,12 +672,7 @@ public class Transaction extends RocksObject {
    * these functions should always succeed.
    *
    *  If this Transaction was created on a {@link TransactionDB}, an
-   *  {@link RocksDBException} may be thrown with an accompanying {@link Status}
    *  when:
-   *    {@link Status.Code#Busy} if there is a write conflict,
-   *    {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *    {@link Status.Code#TryAgain} if the memtable history size is not large
-   *       enough. See
    * @param columnFamilyHandle The column family to merge the key/value into
    * @param key the specified key to be merged.
    * @param value the value associated with the specified key.
@@ -722,12 +695,7 @@ public class Transaction extends RocksObject {
    * these functions should always succeed.
    *
    *  If this Transaction was created on a {@link TransactionDB}, an
-   *  {@link RocksDBException} may be thrown with an accompanying {@link Status}
    *  when:
-   *    {@link Status.Code#Busy} if there is a write conflict,
-   *    {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *    {@link Status.Code#TryAgain} if the memtable history size is not large
-   *       enough. See
    * @param key the specified key to be merged.
    * @param value the value associated with the specified key.
    *
@@ -741,19 +709,13 @@ public class Transaction extends RocksObject {
   }
 
   /**
-   * Similar to {@link RocksDB#delete(ColumnFamilyHandle, byte[])}, but
    * will also perform conflict checking on the keys be written.
    *
    * If this Transaction was created on an {@link OptimisticTransactionDB},
    * these functions should always succeed.
    *
    *  If this Transaction was created on a {@link TransactionDB}, an
-   *  {@link RocksDBException} may be thrown with an accompanying {@link Status}
    *  when:
-   *    {@link Status.Code#Busy} if there is a write conflict,
-   *    {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *    {@link Status.Code#TryAgain} if the memtable history size is not large
-   *       enough. See
    * @param columnFamilyHandle The column family to delete the key/value from
    * @param key the specified key to be deleted.
    *
@@ -767,19 +729,13 @@ public class Transaction extends RocksObject {
   }
 
   /**
-   * Similar to {@link RocksDB#delete(byte[])}, but
    * will also perform conflict checking on the keys be written.
    *
    * If this Transaction was created on an {@link OptimisticTransactionDB},
    * these functions should always succeed.
    *
    *  If this Transaction was created on a {@link TransactionDB}, an
-   *  {@link RocksDBException} may be thrown with an accompanying {@link Status}
    *  when:
-   *    {@link Status.Code#Busy} if there is a write conflict,
-   *    {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *    {@link Status.Code#TryAgain} if the memtable history size is not large
-   *       enough. See
    * @param key the specified key to be deleted.
    *
    * @throws RocksDBException when one of the TransactionalDB conditions
@@ -826,26 +782,19 @@ public class Transaction extends RocksObject {
   }
 
   /**
-   * Similar to {@link RocksDB#singleDelete(ColumnFamilyHandle, byte[])}, but
    * will also perform conflict checking on the keys be written.
    *
    * If this Transaction was created on an {@link OptimisticTransactionDB},
    * these functions should always succeed.
    *
    *  If this Transaction was created on a {@link TransactionDB}, an
-   *  {@link RocksDBException} may be thrown with an accompanying {@link Status}
    *  when:
-   *    {@link Status.Code#Busy} if there is a write conflict,
-   *    {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *    {@link Status.Code#TryAgain} if the memtable history size is not large
-   *       enough. See
    * @param columnFamilyHandle The column family to delete the key/value from
    * @param key the specified key to be deleted.
    *
    * @throws RocksDBException when one of the TransactionalDB conditions
    *     described above occurs, or in the case of an unexpected error
    */
-  @Experimental("Performance optimization for a very specific workload")
   public void singleDelete(final ColumnFamilyHandle columnFamilyHandle,
       final byte[] key) throws RocksDBException {
     assert(isOwningHandle());
@@ -854,25 +803,18 @@ public class Transaction extends RocksObject {
   }
 
   /**
-   * Similar to {@link RocksDB#singleDelete(byte[])}, but
    * will also perform conflict checking on the keys be written.
    *
    * If this Transaction was created on an {@link OptimisticTransactionDB},
    * these functions should always succeed.
    *
    *  If this Transaction was created on a {@link TransactionDB}, an
-   *  {@link RocksDBException} may be thrown with an accompanying {@link Status}
    *  when:
-   *    {@link Status.Code#Busy} if there is a write conflict,
-   *    {@link Status.Code#TimedOut} if a lock could not be acquired,
-   *    {@link Status.Code#TryAgain} if the memtable history size is not large
-   *       enough. See
    * @param key the specified key to be deleted.
    *
    * @throws RocksDBException when one of the TransactionalDB conditions
    *     described above occurs, or in the case of an unexpected error
    */
-  @Experimental("Performance optimization for a very specific workload")
   public void singleDelete(final byte[] key) throws RocksDBException {
     assert(isOwningHandle());
     singleDelete(nativeHandle_, key, key.length);
@@ -890,7 +832,6 @@ public class Transaction extends RocksObject {
    * @throws RocksDBException when one of the TransactionalDB conditions
    *     described above occurs, or in the case of an unexpected error
    */
-  @Experimental("Performance optimization for a very specific workload")
   public void singleDelete(final ColumnFamilyHandle columnFamilyHandle,
       final byte[][] keyParts) throws RocksDBException {
     assert(isOwningHandle());
@@ -909,7 +850,6 @@ public class Transaction extends RocksObject {
    * @throws RocksDBException when one of the TransactionalDB conditions
    *     described above occurs, or in the case of an unexpected error
    */
-  @Experimental("Performance optimization for a very specific workload")
   public void singleDelete(final byte[][] keyParts) throws RocksDBException {
     assert(isOwningHandle());
     singleDelete(nativeHandle_, keyParts, keyParts.length);
@@ -926,7 +866,6 @@ public class Transaction extends RocksObject {
    * If this Transaction was created on a {@link TransactionDB}, this function
    * will still acquire locks necessary to make sure this write doesn't cause
    * conflicts in other transactions; This may cause a {@link RocksDBException}
-   * with associated {@link Status.Code#Busy}.
    *
    * @param columnFamilyHandle The column family to put the key/value into
    * @param key the specified key to be inserted.
@@ -953,7 +892,6 @@ public class Transaction extends RocksObject {
    * If this Transaction was created on a {@link TransactionDB}, this function
    * will still acquire locks necessary to make sure this write doesn't cause
    * conflicts in other transactions; This may cause a {@link RocksDBException}
-   * with associated {@link Status.Code#Busy}.
    *
    * @param key the specified key to be inserted.
    * @param value the value associated with the specified key.
@@ -1018,7 +956,6 @@ public class Transaction extends RocksObject {
    * If this Transaction was created on a {@link TransactionDB}, this function
    * will still acquire locks necessary to make sure this write doesn't cause
    * conflicts in other transactions; This may cause a {@link RocksDBException}
-   * with associated {@link Status.Code#Busy}.
    *
    * @param columnFamilyHandle The column family to merge the key/value into
    * @param key the specified key to be merged.
@@ -1044,7 +981,6 @@ public class Transaction extends RocksObject {
    * If this Transaction was created on a {@link TransactionDB}, this function
    * will still acquire locks necessary to make sure this write doesn't cause
    * conflicts in other transactions; This may cause a {@link RocksDBException}
-   * with associated {@link Status.Code#Busy}.
    *
    * @param key the specified key to be merged.
    * @param value the value associated with the specified key.
@@ -1059,7 +995,6 @@ public class Transaction extends RocksObject {
   }
 
   /**
-   * Similar to {@link RocksDB#delete(ColumnFamilyHandle, byte[])},
    * but operates on the transactions write batch. This write will only happen
    * if this transaction gets committed successfully.
    *
@@ -1069,7 +1004,6 @@ public class Transaction extends RocksObject {
    * If this Transaction was created on a {@link TransactionDB}, this function
    * will still acquire locks necessary to make sure this write doesn't cause
    * conflicts in other transactions; This may cause a {@link RocksDBException}
-   * with associated {@link Status.Code#Busy}.
    *
    * @param columnFamilyHandle The column family to delete the key/value from
    * @param key the specified key to be deleted.
@@ -1085,7 +1019,6 @@ public class Transaction extends RocksObject {
   }
 
   /**
-   * Similar to {@link RocksDB#delete(byte[])},
    * but operates on the transactions write batch. This write will only happen
    * if this transaction gets committed successfully.
    *
@@ -1095,7 +1028,6 @@ public class Transaction extends RocksObject {
    * If this Transaction was created on a {@link TransactionDB}, this function
    * will still acquire locks necessary to make sure this write doesn't cause
    * conflicts in other transactions; This may cause a {@link RocksDBException}
-   * with associated {@link Status.Code#Busy}.
    *
    * @param key the specified key to be deleted.
    *

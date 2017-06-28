@@ -40,7 +40,6 @@ public class TransactionTest extends AbstractTransactionTest {
           try {
             txn2.put(testCf, k1, v12); // should cause an exception!
           } catch(final RocksDBException e) {
-            assertThat(e.getStatus().getCode()).isSameAs(Status.Code.TimedOut);
             return;
           }
         }
@@ -73,7 +72,6 @@ public class TransactionTest extends AbstractTransactionTest {
           try {
             txn2.put(k1, v12); // should cause an exception!
           } catch(final RocksDBException e) {
-            assertThat(e.getStatus().getCode()).isSameAs(Status.Code.TimedOut);
             return;
           }
         }
@@ -115,7 +113,6 @@ public class TransactionTest extends AbstractTransactionTest {
           try {
             txn2.put(testCf, keys[0], otherValue); // should cause an exception!
           } catch(final RocksDBException e) {
-            assertThat(e.getStatus().getCode()).isSameAs(Status.Code.TimedOut);
             return;
           }
         }
@@ -154,7 +151,6 @@ public class TransactionTest extends AbstractTransactionTest {
           try {
             txn2.put(keys[0], otherValue); // should cause an exception!
           } catch(final RocksDBException e) {
-            assertThat(e.getStatus().getCode()).isSameAs(Status.Code.TimedOut);
             return;
           }
         }

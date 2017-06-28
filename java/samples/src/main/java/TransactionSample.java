@@ -117,7 +117,6 @@ public class TransactionSample {
         final byte[] value = txn.getForUpdate(readOptions, key1);
         throw new IllegalStateException();
       } catch(final RocksDBException e) {
-        assert(e.getStatus().getCode() == Status.Code.Busy);
       }
 
       txn.rollback();

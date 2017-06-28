@@ -44,7 +44,6 @@ public class OptimisticTransactionTest extends AbstractTransactionTest {
           try {
             txn3.commit(); // should cause an exception!
           } catch(final RocksDBException e) {
-            assertThat(e.getStatus().getCode()).isSameAs(Status.Code.Busy);
             return;
           }
         }
@@ -81,7 +80,6 @@ public class OptimisticTransactionTest extends AbstractTransactionTest {
           try {
             txn3.commit(); // should cause an exception!
           } catch(final RocksDBException e) {
-            assertThat(e.getStatus().getCode()).isSameAs(Status.Code.Busy);
             return;
           }
         }
@@ -128,7 +126,6 @@ public class OptimisticTransactionTest extends AbstractTransactionTest {
           try {
             txn3.commit(); // should cause an exception!
           } catch(final RocksDBException e) {
-            assertThat(e.getStatus().getCode()).isSameAs(Status.Code.Busy);
             return;
           }
         }
@@ -172,7 +169,6 @@ public class OptimisticTransactionTest extends AbstractTransactionTest {
           try {
             txn3.commit(); // should cause an exception!
           } catch(final RocksDBException e) {
-            assertThat(e.getStatus().getCode()).isSameAs(Status.Code.Busy);
             return;
           }
         }
@@ -262,7 +258,6 @@ public class OptimisticTransactionTest extends AbstractTransactionTest {
       try {
         txn.setName(name);
       } catch(final RocksDBException e) {
-         assertThat(e.getStatus().getCode() == Status.Code.InvalidArgument);
         return;
       }
 

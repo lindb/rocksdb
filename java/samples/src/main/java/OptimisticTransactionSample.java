@@ -120,7 +120,6 @@ public class OptimisticTransactionSample {
       } catch(final RocksDBException e) {
         // Transaction could not commit since the write outside of the txn
         // conflicted with the read!
-        assert(e.getStatus().getCode() == Status.Code.Busy);
       }
 
       txn.rollback();
