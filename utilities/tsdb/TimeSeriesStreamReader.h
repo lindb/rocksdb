@@ -37,7 +37,7 @@ namespace rocksdb {
 
         int64_t getNextValue();
 
-        void flipByte();
+        uint32_t readBitFromBitString();
 
         uint64_t readValueFromBitString(uint32_t bitsToRead);
 
