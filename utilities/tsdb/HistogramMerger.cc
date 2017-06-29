@@ -34,9 +34,11 @@ namespace rocksdb {
                     writer.appendValue(old_max_slot);//max value slot
                     writer.appendValue(existStream.getNextValue());//min
                     writer.appendValue(existStream.getNextValue());//max
+                    writer.appendValue(existStream.getNextValue());//count
                     writer.appendValue(existStream.getNextValue());//sum
                     newStream.getNextValue(); //min
                     newStream.getNextValue(); //max
+                    newStream.getNextValue(); //count
                     newStream.getNextValue(); //sum
                     for (int i = 0; i < max_slot; i++) {//values
                         if (i < old_max_slot) {
@@ -54,6 +56,7 @@ namespace rocksdb {
                     int64_t new_max = newStream.getNextValue();
                     writer.appendValue(old_min < new_min ? old_min : new_min);//min
                     writer.appendValue(old_max > new_max ? old_max : new_max);//max
+                    writer.appendValue(existStream.getNextValue() + newStream.getNextValue());//count
                     writer.appendValue(existStream.getNextValue() + newStream.getNextValue());//sum
                     for (int i = 0; i < max_slot; i++) {//values
                         if (i < old_max_slot && i < new_max_slot) {
@@ -76,6 +79,7 @@ namespace rocksdb {
                 writer.appendValue(max_slot);//max value slot
                 writer.appendValue(existStream.getNextValue());//min
                 writer.appendValue(existStream.getNextValue());//max
+                writer.appendValue(existStream.getNextValue());//count
                 writer.appendValue(existStream.getNextValue());//sum
                 for (int i = 0; i < max_slot; ++i) {// values
                     writer.appendValue(existStream.getNextValue());
@@ -90,6 +94,7 @@ namespace rocksdb {
                 writer.appendValue(max_slot);//max value slot
                 writer.appendValue(newStream.getNextValue());//min
                 writer.appendValue(newStream.getNextValue());//max
+                writer.appendValue(newStream.getNextValue());//count
                 writer.appendValue(newStream.getNextValue());//sum
                 for (int i = 0; i < max_slot; ++i) {
                     writer.appendValue(newStream.getNextValue());// value

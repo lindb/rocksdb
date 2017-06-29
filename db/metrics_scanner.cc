@@ -9,16 +9,11 @@
 #include <utilities/tsdb/ApdexMerger.h>
 #include <utilities/tsdb/TimerMerger.h>
 #include <utilities/tsdb/PayloadMerger.h>
-#include <utilities/tsdb/HistogramMerger.h>
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
-#include "util/coding.h"
 #include "utilities/tsdb/TimeSeriesStreamReader.h"
 #include "utilities/tsdb/TimeSeriesStreamWriter.h"
-
-#include <iostream>
-#include <utilities/tsdb/HistogramMerger.h>
 
 struct TagFilter {
     uint32_t count = 0;
@@ -42,8 +37,8 @@ namespace rocksdb {
         int64_t maxSlot = 0;
         int64_t min = 1;
         int64_t max = 1;
-        int64_t sum = 0;
         int64_t count = 0;
+        int64_t sum = 0;
         int64_t *values = nullptr;
         LinDBHistogram *prev_ = nullptr;
         LinDBHistogram *next_ = nullptr;
@@ -65,6 +60,8 @@ namespace rocksdb {
 
     class HistogramAggregator {
     private:
+        uint8_t firstStats_ = 0;
+        std::string firstResult_ = "";
         std::string resultSet_ = "";
         LinDBHistogram *histograms_ = nullptr;
     public:
@@ -78,9 +75,17 @@ namespace rocksdb {
 
         std::string dumpResult() {
             resultSet_.clear();
-            if (nullptr == histograms_) {
+            if (1 == firstStats_) {
+                resultSet_.assign(firstResult_.data(), firstResult_.size());
+                firstStats_ = 0;
+                firstResult_.clear();
+                return resultSet_;
+            } else if (2 == firstStats_) {
+                firstStats_ = 0;
+            } else if (nullptr == histograms_) {
                 return resultSet_;
             }
+
             TimeSeriesStreamWriter writer(&resultSet_);
             LinDBHistogram *histogram = histograms_;
             while (nullptr != histogram) {
@@ -90,19 +95,10 @@ namespace rocksdb {
                 writer.appendValue(histogram->maxSlot);//max value slot
                 writer.appendValue(histogram->min);//min
                 writer.appendValue(histogram->max);//max
+                writer.appendValue(histogram->count);//count
                 writer.appendValue(histogram->sum);//sum
-//                std::cout << "C++ dumpResult  slot: " << histogram->slot << ", type: " << histogram->type
-//                          << ", baseNumber: "
-//                          << histogram->baseNumber
-//                          << ", maxSlot: " << histogram->maxSlot << ", min: " << histogram->min << ", max: "
-//                          << histogram->max << ", sum : " << histogram->sum << " values[0] :"
-//                          << histogram->values[0]
-//                          << std::endl;
                 for (int64_t i = 0; i < histogram->maxSlot; ++i) {// values
                     writer.appendValue(histogram->values[i]);
-//                    std::cout << " values[" << i << "] :"
-//                              << histogram->values[i]
-//                              << std::endl;
                 }
                 histogram = histogram->next_;
             }
@@ -118,7 +114,6 @@ namespace rocksdb {
                     histograms_ = new LinDBHistogram();
                     histograms_->slot = slot;
                     existing = false;
-//                    std::cout << "C++  is existing : " << existing << std::endl;
                     return histograms_;
                 }
                 linDBHistogram = histograms_;
@@ -128,7 +123,6 @@ namespace rocksdb {
                 index = index->next_;
             }
             if (slot == index->slot) {
-//                std::cout << "C++  is existing : " << existing << std::endl;
                 existing = true;
                 return index;
             } else if (slot < index->slot) {
@@ -151,7 +145,8 @@ namespace rocksdb {
 
         }
 
-        void merge(const char *value, const uint32_t value_size) {
+
+        void add(const char *value, const uint32_t value_size) {
             TimeSeriesStreamReader newStream(value, value_size);
             int32_t slot = newStream.getNextTimestamp();
             LinDBHistogram *histogram = nullptr;
@@ -165,10 +160,8 @@ namespace rocksdb {
                 int64_t max_slot = newStream.getNextValue();//maxSlot
                 int64_t min = newStream.getNextValue();//min
                 int64_t max = newStream.getNextValue();//max
+                int64_t count = newStream.getNextValue();//count
                 int64_t sum = newStream.getNextValue();//sum
-//                std::cout << "C++  merge  slot: " << slot << ", type: " << type << ", baseNumber: " << baseNumber
-//                          << ", maxSlot: " << max_slot << ", min: " << min << ", max: " << max << ", sum : " << sum
-//                          << std::endl;
                 if (!existing) {
                     histogram->slot = slot;
                     histogram->type = type;
@@ -176,13 +169,11 @@ namespace rocksdb {
                     histogram->maxSlot = max_slot;
                     histogram->min = min;
                     histogram->max = max;
+                    histogram->count = count;
                     histogram->sum = sum;
                     histogram->values = new int64_t[max_slot];
                     for (int i = 0; i < max_slot; ++i) {
                         histogram->values[i] = {newStream.getNextValue()};// value
-//                        std::cout << " values[" << i << "] :"
-//                                  << histograms_->values[i]
-//                                  << std::endl;
                     }
                 } else if (type != histogram->type || baseNumber != histogram->baseNumber ||
                            max_slot != histogram->maxSlot) {
@@ -201,17 +192,21 @@ namespace rocksdb {
                         histogram->values[i] += newStream.getNextValue();//value
                     }
                 }
-//                std::cout << "C++ merge after slot: " << histogram->slot << ", type: " << histogram->type
-//                          << ", baseNumber: "
-//                          << histogram->baseNumber
-//                          << ", maxSlot: " << histogram->maxSlot << ", min: " << histogram->min << ", max: "
-//                          << histogram->max << ", sum : " << histogram->sum << " values[0] :"
-//                          << histogram->values[0]
-//                          << std::endl;
-                //reset new slot for next loop
                 slot = newStream.getNextTimestamp();
             }
+        }
 
+        void merge(const char *value, const uint32_t value_size) {
+            if (0 == firstStats_) {
+                firstResult_.assign(value, value_size);
+                firstStats_ = 1;
+                return;
+            } else if (1 == firstStats_) {
+                add(firstResult_.data(), firstResult_.size());
+                firstResult_.clear();
+                firstStats_ = 2;
+            }
+            add(value, value_size);
         }
     };
 
@@ -385,7 +380,8 @@ namespace rocksdb {
                 currentBaseTime_ = (uint8_t) key[0];
                 key.remove_prefix(1);//remove base time
                 if (enableLog) {
-                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time is : %d", currentBaseTime_);
+                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time is : %d",
+                        currentBaseTime_);
                 }
                 if (currentBaseTime_ > end) {
                     //finish scan, because current base time > query end base time
