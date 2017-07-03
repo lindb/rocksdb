@@ -9,11 +9,11 @@
 #include <utilities/tsdb/ApdexMerger.h>
 #include <utilities/tsdb/TimerMerger.h>
 #include <utilities/tsdb/PayloadMerger.h>
-#include <utilities/tsdb/HistogramMerger.h>
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/db.h"
-#include "util/coding.h"
+#include "utilities/tsdb/TimeSeriesStreamReader.h"
+#include "utilities/tsdb/TimeSeriesStreamWriter.h"
 
 struct TagFilter {
     uint32_t count = 0;
@@ -27,12 +27,195 @@ struct TagFilter {
     }
 };
 
+
 namespace rocksdb {
+    class LinDBHistogram {
+    public:
+        int32_t slot = -1;
+        int64_t type = -1;
+        int64_t baseNumber = 0;
+        int64_t maxSlot = 0;
+        int64_t min = 1;
+        int64_t max = 1;
+        int64_t count = 0;
+        int64_t sum = 0;
+        int64_t *values = nullptr;
+        LinDBHistogram *prev_ = nullptr;
+        LinDBHistogram *next_ = nullptr;
+
+        LinDBHistogram() {
+            min = min << 62;
+            max = (max << 63) >> 63;
+        }
+
+        ~LinDBHistogram() {
+            if (nullptr != values) {
+                delete[] values;
+            }
+            if (nullptr != next_) {
+                delete next_;
+            }
+        }
+    };
+
+    class HistogramAggregator {
+    private:
+        uint8_t firstStats_ = 0;
+        std::string firstResult_ = "";
+        std::string resultSet_ = "";
+        LinDBHistogram *histograms_ = nullptr;
+    public:
+        HistogramAggregator() {}
+
+        virtual ~HistogramAggregator() {
+            if (nullptr != histograms_) {
+                delete histograms_;
+            }
+        }
+
+        std::string dumpResult() {
+            resultSet_.clear();
+            if (1 == firstStats_) {
+                resultSet_.assign(firstResult_.data(), firstResult_.size());
+                firstStats_ = 0;
+                firstResult_.clear();
+                return resultSet_;
+            } else if (2 == firstStats_) {
+                firstStats_ = 0;
+            } else if (nullptr == histograms_) {
+                return resultSet_;
+            }
+
+            TimeSeriesStreamWriter writer(&resultSet_);
+            LinDBHistogram *histogram = histograms_;
+            while (nullptr != histogram) {
+                writer.appendTimestamp(histogram->slot);//slot
+                writer.appendValue(histogram->type);//type
+                writer.appendValue(histogram->baseNumber);//baseNumber
+                writer.appendValue(histogram->maxSlot);//max value slot
+                writer.appendValue(histogram->min);//min
+                writer.appendValue(histogram->max);//max
+                writer.appendValue(histogram->count);//count
+                writer.appendValue(histogram->sum);//sum
+                for (int64_t i = 0; i < histogram->maxSlot; ++i) {// values
+                    writer.appendValue(histogram->values[i]);
+                }
+                histogram = histogram->next_;
+            }
+            writer.flush();
+            delete histograms_;
+            histograms_ = nullptr;
+            return resultSet_;
+        }
+
+        LinDBHistogram *findOrCreateLinDBHistogram(LinDBHistogram *linDBHistogram, const int32_t slot, bool &existing) {
+            if (nullptr == linDBHistogram) {
+                if (nullptr == histograms_) {
+                    histograms_ = new LinDBHistogram();
+                    histograms_->slot = slot;
+                    existing = false;
+                    return histograms_;
+                }
+                linDBHistogram = histograms_;
+            }
+            LinDBHistogram *index = linDBHistogram;
+            while (slot > index->slot && nullptr != index->next_) {
+                index = index->next_;
+            }
+            if (slot == index->slot) {
+                existing = true;
+                return index;
+            } else if (slot < index->slot) {
+                linDBHistogram = new LinDBHistogram();
+                linDBHistogram->next_ = index;
+                if (nullptr != index->prev_) {
+                    index->prev_->next_ = linDBHistogram;
+                    linDBHistogram->prev_ = index->prev_;
+                }
+                index->prev_ = linDBHistogram;
+                existing = false;
+                return linDBHistogram;
+            } else {
+                linDBHistogram = new LinDBHistogram();
+                linDBHistogram->prev_ = index;
+                index->next_ = linDBHistogram;
+                existing = false;
+                return linDBHistogram;
+            }
+
+        }
+
+
+        void add(const char *value, const uint32_t value_size) {
+            TimeSeriesStreamReader newStream(value, value_size);
+            int32_t slot = newStream.getNextTimestamp();
+            LinDBHistogram *histogram = nullptr;
+            while (slot != -1) {
+                bool existing = true;
+//                std::cout << "C++  frist crate : " << existing << "  slot : " << slot << std::endl;
+                histogram = findOrCreateLinDBHistogram(histogram, slot, existing);
+//                std::cout << "C++  is crate : " << existing << std::endl;
+                int64_t type = newStream.getNextValue();//type
+                int64_t baseNumber = newStream.getNextValue();//baseNumber
+                int64_t max_slot = newStream.getNextValue();//maxSlot
+                int64_t min = newStream.getNextValue();//min
+                int64_t max = newStream.getNextValue();//max
+                int64_t count = newStream.getNextValue();//count
+                int64_t sum = newStream.getNextValue();//sum
+                if (!existing) {
+                    histogram->slot = slot;
+                    histogram->type = type;
+                    histogram->baseNumber = baseNumber;
+                    histogram->maxSlot = max_slot;
+                    histogram->min = min;
+                    histogram->max = max;
+                    histogram->count = count;
+                    histogram->sum = sum;
+                    histogram->values = new int64_t[max_slot];
+                    for (int i = 0; i < max_slot; ++i) {
+                        histogram->values[i] = {newStream.getNextValue()};// value
+                    }
+                } else if (type != histogram->type || baseNumber != histogram->baseNumber ||
+                           max_slot != histogram->maxSlot) {
+                    for (int64_t i = 0; i < max_slot; ++i) {
+                        newStream.getNextValue();// value
+                    }
+                } else {
+                    if (histogram->min > min) {
+                        histogram->min = min;
+                    }
+                    if (histogram->max < max) {
+                        histogram->max = max;
+                    }
+                    histogram->sum += sum;
+                    for (int64_t i = 0; i < max_slot; ++i) {
+                        histogram->values[i] += newStream.getNextValue();//value
+                    }
+                }
+                slot = newStream.getNextTimestamp();
+            }
+        }
+
+        void merge(const char *value, const uint32_t value_size) {
+            if (0 == firstStats_) {
+                firstResult_.assign(value, value_size);
+                firstStats_ = 1;
+                return;
+            } else if (1 == firstStats_) {
+                add(firstResult_.data(), firstResult_.size());
+                firstResult_.clear();
+                firstStats_ = 2;
+            }
+            add(value, value_size);
+        }
+    };
+
     class MetricsScannerImpl : public MetricsScanner {
     private:
         DB *db_;
         Env *env_;
         ReadOptions read_options_;
+        HistogramAggregator *aggregator_ = nullptr;
 
         std::string seekKey_ = "";
         uint32_t readMetric_ = 0;
@@ -91,6 +274,9 @@ namespace rocksdb {
             }
             if (nullptr != curGroupByKey_) {
                 delete[] curGroupByKey_;
+            }
+            if (nullptr != aggregator_) {
+                delete aggregator_;
             }
         }
 
@@ -168,6 +354,11 @@ namespace rocksdb {
             if (nullptr != iter_) {
                 delete iter_;
             }
+            if (nullptr == aggregator_) {
+                if (metric_type == TSDB::METRIC_TYPE_HISTOGRAM) {
+                    aggregator_ = new HistogramAggregator();
+                }
+            }
             iter_ = db_->NewIterator(read_options_, columnFamilyHandle);
             seekKey_.clear();
             seekKey_.append(1, nextBaseTime);
@@ -189,7 +380,8 @@ namespace rocksdb {
                 currentBaseTime_ = (uint8_t) key[0];
                 key.remove_prefix(1);//remove base time
                 if (enableLog) {
-                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time is : %d", currentBaseTime_);
+                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "has next base time is : %d",
+                        currentBaseTime_);
                 }
                 if (currentBaseTime_ > end) {
                     //finish scan, because current base time > query end base time
@@ -207,6 +399,7 @@ namespace rocksdb {
         }
 
         virtual void next() override {
+//            aggregator_ = new HistogramAggregator();
             //reset scan context for new loop
             resultSet_.clear();
             tempResult_.clear();
@@ -363,8 +556,10 @@ namespace rocksdb {
                     PayloadMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
                                          (uint32_t) value.size(), &tempResult_);
                 } else if (metric_type == TSDB::METRIC_TYPE_HISTOGRAM) {
-                    HistogramMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
-                                           (uint32_t) value.size(), &tempResult_);
+//                    HistogramMerger::merge(resultSet_.data(), (uint32_t) resultSet_.length(), value.data(),
+//                                           (uint32_t) value.size(), &tempResult_);
+//                    std::cout << "C++  merge in counter " << std::endl;
+                    aggregator_->merge(value.data(), (uint32_t) value.size());
                 }
                 resultSet_ = tempResult_;
                 tempResult_.clear();
@@ -394,6 +589,7 @@ namespace rocksdb {
         }
 
         virtual Slice getResultSet() override {
+            resultSet_ = aggregator_->dumpResult();//here is keep the string, it is must
             return resultSet_;
         }
 

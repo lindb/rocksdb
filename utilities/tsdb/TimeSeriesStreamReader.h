@@ -18,9 +18,7 @@ namespace rocksdb {
         uint64_t previousTrailingZeros_;
 
         uint32_t count_ = 0;
-        uint8_t bitsLeft_ = 0;
         uint32_t pos_ = 0;
-        char cur_;
     public:
         TimeSeriesStreamReader(const char *data, const uint32_t size) {
             data_ = data;
@@ -31,9 +29,6 @@ namespace rocksdb {
                           | (static_cast<uint32_t>(static_cast<unsigned char>(data_[size_ - 3])) << 16)
                           | (static_cast<uint32_t>(static_cast<unsigned char>(data_[size_ - 4])) << 24));
             }
-            if (count_ > 0) {
-                flipByte();
-            }
         }
 
         ~TimeSeriesStreamReader() {}
@@ -42,11 +37,13 @@ namespace rocksdb {
 
         int64_t getNextValue();
 
-        void flipByte();
+        uint32_t readBitFromBitString();
 
         uint64_t readValueFromBitString(uint32_t bitsToRead);
 
         uint32_t findTheFirstZeroBit(uint32_t limit);
+
+        uint64_t readValueFromBit();
     };
 }
 

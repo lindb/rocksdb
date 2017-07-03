@@ -7,7 +7,7 @@
 namespace rocksdb {
 
     int16_t TimeSeriesStreamReader::getNextTimestamp() {
-        if (count_ == 0) {
+        if (count_ <= 0) {
             return -1;
         }
         count_--;
@@ -43,14 +43,15 @@ namespace rocksdb {
             return previousValue_;
         }
         //check if current value equals previous value
-        uint64_t nonZeroValue = readValueFromBitString(1);
+        uint64_t nonZeroValue = readBitFromBitString();
+
         if (!nonZeroValue) {
             //for zero, equals previous value
             return previousValue_;
         }
 
         //read value type(new leading/exist leading)
-        uint64_t usePreviousBlockInformation = readValueFromBitString(1);
+        uint64_t usePreviousBlockInformation = readBitFromBitString();
 
         uint64_t xorValue;
         if (usePreviousBlockInformation) {
@@ -70,14 +71,12 @@ namespace rocksdb {
         return value;
     }
 
+
     uint64_t TimeSeriesStreamReader::readValueFromBitString(uint32_t bitsToRead) {
         uint64_t value = 0;
         for (int i = 0; i < bitsToRead; i++) {
-            value <<= 1;
-            char bit = (char) ((cur_ >> (bitsLeft_ - 1)) & 1);
-            value += bit;
-            bitsLeft_--;
-            flipByte();
+            value = ((value << 1) | ((data_[pos_ >> 3] >> (7 - (pos_ & 0x7))) & 1));
+            pos_++;
         }
         return value;
     }
@@ -85,7 +84,7 @@ namespace rocksdb {
     uint32_t TimeSeriesStreamReader::findTheFirstZeroBit(uint32_t limit) {
         uint32_t bits = 0;
         while (bits < limit) {
-            uint32_t bit = (uint32_t) readValueFromBitString(1);
+            uint32_t bit = readBitFromBitString();
             if (bit == 0) {
                 return bits;
             }
@@ -94,11 +93,9 @@ namespace rocksdb {
         return bits;
     }
 
-    void TimeSeriesStreamReader::flipByte() {
-        if (bitsLeft_ == 0) {
-            cur_ = data_[pos_];
-            bitsLeft_ = 8;
-            pos_++;
-        }
+    uint32_t TimeSeriesStreamReader::readBitFromBitString() {
+        uint32_t bit = ((data_[pos_ >> 3] >> (7 - (pos_ & 0x7))) & 1);
+        pos_++;
+        return bit;
     }
 }
