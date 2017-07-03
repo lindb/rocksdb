@@ -1297,11 +1297,11 @@ ifeq ($(PLATFORM), OS_SOLARIS)
 endif
 
 libz.a:
-	-rm -rf zlib-1.2.8
-	curl -O -L http://zlib.net/fossils/zlib-1.2.8.tar.gz
-	tar xvzf zlib-1.2.8.tar.gz
-	cd zlib-1.2.8 && CFLAGS='-fPIC' ./configure --static && make
-	cp zlib-1.2.8/libz.a .
+	-rm -rf zlib-1.2.11
+	curl -O http://zlib.net/zlib-1.2.11.tar.gz
+	tar xvzf zlib-1.2.11.tar.gz
+	cd zlib-1.2.11 && CFLAGS='-fPIC' ./configure --static && make
+	cp zlib-1.2.11/libz.a .
 
 libbz2.a:
 	-rm -rf bzip2-1.0.6
