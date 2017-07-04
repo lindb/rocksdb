@@ -589,7 +589,9 @@ namespace rocksdb {
         }
 
         virtual Slice getResultSet() override {
-            resultSet_ = aggregator_->dumpResult();//here is keep the string, it is must
+            if (metric_type == TSDB::METRIC_TYPE_HISTOGRAM) {
+                resultSet_ = aggregator_->dumpResult();//here is keep the string, it is must
+            }
             return resultSet_;
         }
 
