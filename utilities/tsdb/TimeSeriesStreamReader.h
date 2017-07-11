@@ -19,10 +19,12 @@ namespace rocksdb {
 
         uint32_t count_ = 0;
         uint32_t pos_ = 0;
+        uint32_t pos_size_;
     public:
         TimeSeriesStreamReader(const char *data, const uint32_t size) {
             data_ = data;
             size_ = size;
+            pos_size_ = size * 8;
             if (size_ >= 4) {
                 count_ = ((static_cast<uint32_t>(static_cast<unsigned char>(data_[size_ - 1])))
                           | (static_cast<uint32_t>(static_cast<unsigned char>(data_[size_ - 2])) << 8)

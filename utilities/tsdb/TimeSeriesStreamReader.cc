@@ -74,9 +74,15 @@ namespace rocksdb {
 
     uint64_t TimeSeriesStreamReader::readValueFromBitString(uint32_t bitsToRead) {
         uint64_t value = 0;
-        for (int i = 0; i < bitsToRead; i++) {
+        int i = 0;
+        while (i < bitsToRead && pos_ < pos_size_) {
             value = ((value << 1) | ((data_[pos_ >> 3] >> (7 - (pos_ & 0x7))) & 1));
             pos_++;
+            i++;
+        }
+        while (i < bitsToRead) {
+            value <<= 1;
+            i++;
         }
         return value;
     }
