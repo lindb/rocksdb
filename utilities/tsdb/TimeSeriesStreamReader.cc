@@ -100,8 +100,11 @@ namespace rocksdb {
     }
 
     uint32_t TimeSeriesStreamReader::readBitFromBitString() {
-        uint32_t bit = ((data_[pos_ >> 3] >> (7 - (pos_ & 0x7))) & 1);
-        pos_++;
+        uint32_t bit = 0;
+        if (pos_ < pos_size_) {
+            bit = ((data_[pos_ >> 3] >> (7 - (pos_ & 0x7))) & 1);
+            pos_++;
+        }
         return bit;
     }
 }
