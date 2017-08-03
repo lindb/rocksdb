@@ -131,6 +131,8 @@ namespace rocksdb {
                 if (nullptr != index->prev_) {
                     index->prev_->next_ = linDBHistogram;
                     linDBHistogram->prev_ = index->prev_;
+                } else {
+                    histograms_ = linDBHistogram;
                 }
                 index->prev_ = linDBHistogram;
                 existing = false;
@@ -173,7 +175,7 @@ namespace rocksdb {
                     histogram->sum = sum;
                     histogram->values = new int64_t[max_slot];
                     for (int i = 0; i < max_slot; ++i) {
-                        histogram->values[i] = {newStream.getNextValue()};// value
+                        histogram->values[i] = newStream.getNextValue();// value
                     }
                 } else if (type != histogram->type || baseNumber != histogram->baseNumber ||
                            max_slot != histogram->maxSlot) {
