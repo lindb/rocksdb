@@ -31,7 +31,6 @@ struct TagFilter {
 namespace rocksdb {
     class LinDBHistogram {
     public:
-        int32_t slot = -1;
         int64_t type = -1;
         int64_t baseNumber = 0;
         int64_t maxSlot = 0;
@@ -40,8 +39,6 @@ namespace rocksdb {
         int64_t count = 0;
         int64_t sum = 0;
         int64_t *values = nullptr;
-        LinDBHistogram *prev_ = nullptr;
-        LinDBHistogram *next_ = nullptr;
 
         LinDBHistogram() {
             min = min << 62;
@@ -52,9 +49,6 @@ namespace rocksdb {
             if (nullptr != values) {
                 delete[] values;
             }
-            if (nullptr != next_) {
-                delete next_;
-            }
         }
     };
 
@@ -63,13 +57,19 @@ namespace rocksdb {
         uint8_t firstStats_ = 0;
         std::string firstResult_ = "";
         std::string resultSet_ = "";
-        LinDBHistogram *histograms_ = nullptr;
+        std::map<int, LinDBHistogram *> histograms_;
     public:
         HistogramAggregator() {}
 
         virtual ~HistogramAggregator() {
-            if (nullptr != histograms_) {
-                delete histograms_;
+            clear();
+        }
+
+        void clear() {
+            for (std::map<int, LinDBHistogram *>::iterator iter = histograms_.begin();
+                 iter != histograms_.end();) {
+                delete iter->second;
+                histograms_.erase(iter++);
             }
         }
 
@@ -82,14 +82,14 @@ namespace rocksdb {
                 return resultSet_;
             } else if (2 == firstStats_) {
                 firstStats_ = 0;
-            } else if (nullptr == histograms_) {
-                return resultSet_;
             }
 
             TimeSeriesStreamWriter writer(&resultSet_);
-            LinDBHistogram *histogram = histograms_;
-            while (nullptr != histogram) {
-                writer.appendTimestamp(histogram->slot);//slot
+            for (std::map<int, LinDBHistogram *>::iterator iter = histograms_.begin();
+                 iter != histograms_.end();) {
+                int slot = iter->first;
+                LinDBHistogram *histogram = iter->second;
+                writer.appendTimestamp(slot);//slot
                 writer.appendValue(histogram->type);//type
                 writer.appendValue(histogram->baseNumber);//baseNumber
                 writer.appendValue(histogram->maxSlot);//max value slot
@@ -100,62 +100,42 @@ namespace rocksdb {
                 for (int64_t i = 0; i < histogram->maxSlot; ++i) {// values
                     writer.appendValue(histogram->values[i]);
                 }
-                histogram = histogram->next_;
+                delete histogram;
+                histograms_.erase(iter++);
             }
             writer.flush();
-            delete histograms_;
-            histograms_ = nullptr;
             return resultSet_;
         }
 
-        LinDBHistogram *findOrCreateLinDBHistogram(LinDBHistogram *linDBHistogram, const int32_t slot, bool &existing) {
-            if (nullptr == linDBHistogram) {
-                if (nullptr == histograms_) {
-                    histograms_ = new LinDBHistogram();
-                    histograms_->slot = slot;
-                    existing = false;
-                    return histograms_;
+        LinDBHistogram *
+        findOrCreate(int slot, std::map<int, rocksdb::LinDBHistogram *>::iterator &histogramIterator, bool &existing) {
+            while (histogramIterator != histograms_.end()) {
+                if (histogramIterator->first == slot) {
+                    existing = true;
+                    return histogramIterator->second;
+                } else if (histogramIterator->first > slot) {
+                    std::cout << "new histograms" << std::endl;
+                    LinDBHistogram *histogram = new LinDBHistogram();
+                    histograms_.insert(std::map<int, LinDBHistogram *>::value_type(slot, histogram));
+                    return histogram;
                 }
-                linDBHistogram = histograms_;
+                histogramIterator++;
             }
-            LinDBHistogram *index = linDBHistogram;
-            while (slot > index->slot && nullptr != index->next_) {
-                index = index->next_;
-            }
-            if (slot == index->slot) {
-                existing = true;
-                return index;
-            } else if (slot < index->slot) {
-                linDBHistogram = new LinDBHistogram();
-                linDBHistogram->next_ = index;
-                if (nullptr != index->prev_) {
-                    index->prev_->next_ = linDBHistogram;
-                    linDBHistogram->prev_ = index->prev_;
-                } else {
-                    histograms_ = linDBHistogram;
-                }
-                index->prev_ = linDBHistogram;
-                existing = false;
-                return linDBHistogram;
-            } else {
-                linDBHistogram = new LinDBHistogram();
-                linDBHistogram->prev_ = index;
-                index->next_ = linDBHistogram;
-                existing = false;
-                return linDBHistogram;
-            }
-
+            std::cout << "new histograms" << std::endl;
+            LinDBHistogram *histogram = new LinDBHistogram();
+            histograms_.insert(std::map<int, LinDBHistogram *>::value_type(slot, histogram));
+            return histogram;
         }
-
 
         void add(const char *value, const uint32_t value_size) {
             TimeSeriesStreamReader newStream(value, value_size);
             int32_t slot = newStream.getNextTimestamp();
-            LinDBHistogram *histogram = nullptr;
+            std::map<int, rocksdb::LinDBHistogram *>::iterator histogramIterator = histograms_.begin();
             while (slot != -1) {
-                bool existing = true;
+                bool existing = false;
+                LinDBHistogram *histogram = findOrCreate(slot, histogramIterator, existing);
 //                std::cout << "C++  frist crate : " << existing << "  slot : " << slot << std::endl;
-                histogram = findOrCreateLinDBHistogram(histogram, slot, existing);
+//                histogram = findOrCreateLinDBHistogram(histogram, slot, existing);
 //                std::cout << "C++  is crate : " << existing << std::endl;
                 int64_t type = newStream.getNextValue();//type
                 int64_t baseNumber = newStream.getNextValue();//baseNumber
@@ -165,7 +145,6 @@ namespace rocksdb {
                 int64_t count = newStream.getNextValue();//count
                 int64_t sum = newStream.getNextValue();//sum
                 if (!existing) {
-                    histogram->slot = slot;
                     histogram->type = type;
                     histogram->baseNumber = baseNumber;
                     histogram->maxSlot = max_slot;
