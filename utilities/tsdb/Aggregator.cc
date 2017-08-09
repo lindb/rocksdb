@@ -1,142 +1,344 @@
 //
-// Created by yufu.deng on 17/6/24.
+// Created by yufu.deng on 17/8/8.
 //
-
-#include <map>
-#include "Aggregator.h"
-#include "TimeSeriesStreamReader.h"
-#include "TimeSeriesStreamWriter.h"
-#include "string"
-
-using namespace std;
-
 #pragma once
 
-//namespace rocksdb {
-//
-//}
-//
-//namespace rocksdb {
-//    class CounterAggregator : public Aggregator {
-//    private:
-//        bool close_ = false;
-//    public:
-//
-//        CounterAggregator() {}
-//
-//        virtual ~CounterAggregator() {}
-//
-//        virtual void merge(const char *value, const uint32_t value_size) {
-//
-//        }
-//    };
-//
-//}  // namespace rocksdb
-//
-//#endif //ROCKSDB_METRICS_AGGREGATOR
+#include <streambuf>
+#include <map>
+#include <iostream>
+#include "Aggregator.h"
+#include "TSDB.h"
 
-
-namespace rocksdb {
-    class LinDBHistogram {
+namespace LinDB {
+    class Counter {
     public:
-        int64_t type = -1;
-        int64_t baseNumber = 0;
-        int64_t maxSlot = 0;
-        int64_t min = 1;
-        int64_t max = 1;
-        int64_t sum = 0;
+        int64_t value = 0;
+    };
+
+    class Gauge {
+    public:
+        int64_t timestamp;
+        int64_t value;
+    };
+
+    class Timer {
+    public:
+        int64_t min;
+        int64_t max;
         int64_t count = 0;
+        int64_t sum = 0;
+    };
+
+    class Ratio {
+    public:
+        int64_t numerator;
+        int64_t denominator;
+    };
+
+    class Apdex {
+    public:
+        int64_t total;
+        int64_t satisfied;
+        int64_t tolerating;
+    };
+
+    class Payload {
+    public:
+        int64_t min;
+        int64_t max;
+        int64_t count = 0;
+        int64_t sum = 0;
+    };
+
+    class Histogram {
+    public:
+        int64_t type;
+        int64_t baseNumber;
+        int64_t maxSlot;
+        int64_t min;
+        int64_t max;
+        int64_t count;
+        int64_t sum;
         int64_t *values = nullptr;
 
-        LinDBHistogram() {
-            min = min << 62;
-            max = (max << 63) >> 63;
+        Histogram() {
         }
 
-        ~LinDBHistogram() {
+        ~Histogram() {
             if (nullptr != values) {
+                std::cout << "delete values" << std::endl;
                 delete[] values;
             }
         }
     };
 
-
-    class HistogramAggregator : public Aggregator {
-    private:
-        std::map<int16_t, LinDBHistogram> histograms_;
+    class CounterAggregator : public AggregatorImpl<Counter *> {
     public:
+        CounterAggregator() {}
 
-        HistogramAggregator() {}
+        virtual ~CounterAggregator() {
 
-        virtual ~HistogramAggregator() {
         }
 
-        std::string dumpResult() {
-            std::string resultSet = "";
-            TimeSeriesStreamWriter writer(&resultSet);
-            if (histograms_.empty()) {
-                return resultSet;
-            }
-            auto iter = histograms_.begin();
-            while (iter != histograms_.end()) {
-                int32_t slot = iter->first;
-                LinDBHistogram linDBHistogram = iter->second;
-                writer.appendTimestamp(slot);
-                writer.appendValue(linDBHistogram.type);//type
-                writer.appendValue(linDBHistogram.baseNumber);//baseNumber
-                writer.appendValue(linDBHistogram.maxSlot);//max value slot
-                writer.appendValue(linDBHistogram.min);//min
-                writer.appendValue(linDBHistogram.max);//max
-                writer.appendValue(linDBHistogram.sum);//sum
-                for (int64_t i = 0; i < linDBHistogram.maxSlot; ++i) {// values
-                    writer.appendValue(linDBHistogram.values[i]);
-                }
-                histograms_.erase(iter++);
-            }
-            writer.flush();
-            histograms_.clear();
+        Counter *createValue() override {
+            return new Counter();
         }
 
-        void merge(const char *value, const uint32_t value_size) {
-            TimeSeriesStreamReader newStream(value, value_size);
-            int16_t slot = newStream.getNextTimestamp();
-            while (slot != -1) {
-                int64_t type = newStream.getNextValue();//type
-                int64_t baseNumber = newStream.getNextValue();//baseNumber
-                int64_t max_slot = newStream.getNextValue();
-                int64_t min = newStream.getNextValue();//min
-                int64_t max = newStream.getNextValue();//max
-                int64_t sum = newStream.getNextValue();//sum
-                LinDBHistogram linDBHistogram = histograms_[slot];
-                if (-1 == linDBHistogram.type) {
-                    linDBHistogram.type = type;
-                    linDBHistogram.baseNumber = baseNumber;
-                    linDBHistogram.maxSlot = max_slot;
-                    linDBHistogram.min = min;
-                    linDBHistogram.max = max;
-                    linDBHistogram.sum = sum;
-                    linDBHistogram.values = new int64_t[max_slot];
-                    for (int i = 0; i < max_slot; ++i) {
-                        linDBHistogram.values[i] = newStream.getNextValue();// value
-                    }
-                } else if (type != linDBHistogram.type || baseNumber != linDBHistogram.baseNumber ||
-                           max_slot != linDBHistogram.maxSlot) {
-                    for (int64_t i = 0; i < max_slot; ++i) {
-                        newStream.getNextValue();// value
-                    }
-                } else {
-                    linDBHistogram.min = linDBHistogram.min > min ? min : linDBHistogram.min;
-                    linDBHistogram.max = linDBHistogram.max < max ? max : linDBHistogram.max;
-                    linDBHistogram.sum += sum;
-                    for (int64_t i = 0; i < max_slot; ++i) {
-                        linDBHistogram.values[i] += newStream.getNextValue();// value
-                    }
-                }
-                //reset new slot for next loop
-                slot = newStream.getNextTimestamp();
-            }
+        void writeTo(rocksdb::TimeSeriesStreamWriter &writer, Counter *value) override {
+            writer.appendValue(value->value);
+        }
 
+        void merge(Counter *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
+            oValue->value += newStream.getNextValue();
         }
     };
 
-}  // namespace rocksdb
+    class GaugeAggregator : public AggregatorImpl<Gauge *> {
+    public:
+        GaugeAggregator() {}
+
+        virtual ~GaugeAggregator() {}
+
+        Gauge *createValue() override {
+            return new Gauge();
+        }
+
+        void writeTo(rocksdb::TimeSeriesStreamWriter &writer, Gauge *value) override {
+            writer.appendValue(value->timestamp);
+            writer.appendValue(value->value);
+        }
+
+        void merge(Gauge *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
+            int64_t new_time = newStream.getNextValue();
+            int64_t new_value = newStream.getNextValue();
+            if (newValue || new_time >= oValue->timestamp) {
+                oValue->timestamp = new_time;
+                oValue->value = new_value;
+            }
+        }
+    };
+
+    class TimerAggregator : public AggregatorImpl<Timer *> {
+    public:
+        TimerAggregator() {}
+
+        virtual ~TimerAggregator() {}
+
+        Timer *createValue() override {
+            return new Timer();
+        }
+
+        void writeTo(rocksdb::TimeSeriesStreamWriter &writer, Timer *value) override {
+            writer.appendValue(value->min);
+            writer.appendValue(value->max);
+            writer.appendValue(value->count);
+            writer.appendValue(value->sum);
+        }
+
+        void merge(Timer *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
+            uint64_t min = newStream.getNextValue();
+            uint64_t max = newStream.getNextValue();
+            uint64_t count = newStream.getNextValue();
+            uint64_t sum = newStream.getNextValue();
+            if (newValue) {
+                oValue->min = min;
+                oValue->max = max;
+            } else {
+                oValue->min = oValue->min > min ? min : oValue->min;
+                oValue->max = oValue->max < max ? max : oValue->max;
+            }
+            oValue->count += count;
+            oValue->sum += sum;
+        }
+    };
+
+    class RatioAggregator : public AggregatorImpl<Ratio *> {
+    public:
+        RatioAggregator() {}
+
+        virtual ~RatioAggregator() {}
+
+        Ratio *createValue() override {
+            return new Ratio();
+        }
+
+        void writeTo(rocksdb::TimeSeriesStreamWriter &writer, Ratio *value) override {
+            writer.appendValue(value->denominator);
+            writer.appendValue(value->numerator);
+        }
+
+        void merge(Ratio *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
+            if (newValue) {
+                oValue->denominator = newStream.getNextValue();
+                oValue->numerator = newStream.getNextValue();
+            } else {
+                oValue->denominator += newStream.getNextValue();
+                oValue->numerator += newStream.getNextValue();
+            }
+        }
+    };
+
+    class ApdexAggregator : public AggregatorImpl<Apdex *> {
+    public:
+        ApdexAggregator() {}
+
+        virtual ~ApdexAggregator() {}
+
+        Apdex *createValue() override {
+            return new Apdex();
+        }
+
+        void writeTo(rocksdb::TimeSeriesStreamWriter &writer, Apdex *value) override {
+            writer.appendValue(value->tolerating);
+            writer.appendValue(value->satisfied);
+            writer.appendValue(value->total);
+        }
+
+        void merge(Apdex *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
+            if (newValue) {
+                oValue->tolerating = newStream.getNextValue();
+                oValue->satisfied = newStream.getNextValue();
+                oValue->total = newStream.getNextValue();
+            } else {
+                oValue->tolerating += newStream.getNextValue();
+                oValue->satisfied += newStream.getNextValue();
+                oValue->total += newStream.getNextValue();
+            }
+        }
+    };
+
+    class PayloadAggregator : public AggregatorImpl<Payload *> {
+    public:
+        PayloadAggregator() {}
+
+        virtual ~PayloadAggregator() {}
+
+        Payload *createValue() override {
+            return new Payload();
+        }
+
+        void writeTo(rocksdb::TimeSeriesStreamWriter &writer, Payload *value) override {
+            writer.appendValue(value->min);
+            writer.appendValue(value->max);
+            writer.appendValue(value->count);
+            writer.appendValue(value->sum);
+        }
+
+        void merge(Payload *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
+            uint64_t min = newStream.getNextValue();
+            uint64_t max = newStream.getNextValue();
+            uint64_t count = newStream.getNextValue();
+            uint64_t sum = newStream.getNextValue();
+            if (newValue) {
+                oValue->min = min;
+                oValue->max = max;
+            } else {
+                oValue->min = oValue->min > min ? min : oValue->min;
+                oValue->max = oValue->max < max ? max : oValue->max;
+            }
+            oValue->count += count;
+            oValue->sum += sum;
+        }
+    };
+
+    class HistogramAggregator : public AggregatorImpl<Histogram *> {
+
+    public:
+        HistogramAggregator() {}
+
+        ~HistogramAggregator() {}
+
+
+        void writeTo(rocksdb::TimeSeriesStreamWriter &writer, Histogram *value) override {
+            writer.appendValue(value->type);//type
+            writer.appendValue(value->baseNumber);//baseNumber
+            writer.appendValue(value->maxSlot);//max value slot
+            writer.appendValue(value->min);//min
+            writer.appendValue(value->max);//max
+            writer.appendValue(value->count);//count
+            writer.appendValue(value->sum);//sum
+            for (int64_t i = 0; i < value->maxSlot; ++i) {// values_
+                writer.appendValue(value->values[i]);
+            }
+        }
+
+        Histogram *createValue() override {
+            return new Histogram();
+        }
+
+        void merge(Histogram *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
+            int64_t type = newStream.getNextValue();//type
+            int64_t baseNumber = newStream.getNextValue();//baseNumber
+            int64_t max_slot = newStream.getNextValue();//maxSlot
+            int64_t min = newStream.getNextValue();//min
+            int64_t max = newStream.getNextValue();//max
+            int64_t count = newStream.getNextValue();//count
+            int64_t sum = newStream.getNextValue();//sum
+            if (newValue) {
+                oValue->type = type;
+                oValue->baseNumber = baseNumber;
+                oValue->maxSlot = max_slot;
+                oValue->min = min;
+                oValue->max = max;
+                oValue->count = count;
+                oValue->sum = sum;
+                oValue->values = new int64_t[max_slot];
+                for (int i = 0; i < max_slot; ++i) {
+                    oValue->values[i] = newStream.getNextValue();// value
+                }
+            } else if (type != oValue->type || baseNumber != oValue->baseNumber ||
+                       max_slot != oValue->maxSlot) {
+                for (int64_t i = 0; i < max_slot; ++i) {
+                    newStream.getNextValue();// value
+                }
+            } else {
+                if (oValue->min > min) {
+                    oValue->min = min;
+                }
+                if (oValue->max < max) {
+                    oValue->max = max;
+                }
+                oValue->count += count;
+                oValue->sum += sum;
+                for (int64_t i = 0; i < max_slot; ++i) {
+                    oValue->values[i] += newStream.getNextValue();//value
+                }
+            }
+        }
+
+    };
+
+    class EmptyAggregator : public Aggregator {
+    public:
+        EmptyAggregator() {}
+
+        virtual ~EmptyAggregator() {}
+
+        void clear() override {}
+
+        std::string dumpResult() override {
+            return "";
+        }
+
+        void addOrMerge(const char *value, const uint32_t value_size) override {}
+    };
+
+    Aggregator *NewAggregatorImpl(char metric_type) {
+        if (metric_type == rocksdb::TSDB::METRIC_TYPE_COUNTER) {
+            return new CounterAggregator();
+        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_GAUGE) {
+            return new GaugeAggregator();
+        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_RATIO) {
+            return new RatioAggregator();
+        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_TIMER) {
+            return new TimerAggregator();
+        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_APDEX) {
+            return new ApdexAggregator();
+        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_PAYLOAD) {
+            return new PayloadAggregator();
+        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_HISTOGRAM) {
+            return new HistogramAggregator();
+        }
+        return new EmptyAggregator();
+    }
+}
