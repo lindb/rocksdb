@@ -5,7 +5,6 @@
 
 #include <streambuf>
 #include <map>
-#include <iostream>
 #include "Aggregator.h"
 #include "TSDB.h"
 
@@ -66,7 +65,6 @@ namespace LinDB {
 
         ~Histogram() {
             if (nullptr != values) {
-                std::cout << "delete values" << std::endl;
                 delete[] values;
             }
         }
