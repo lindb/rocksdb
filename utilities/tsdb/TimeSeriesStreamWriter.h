@@ -12,7 +12,7 @@ namespace rocksdb {
         std::string *data_;
 
         uint16_t prevTimestamp_ = 0;
-        int32_t prevTimestampDelta_ = 0;
+        int64_t prevTimestampDelta_ = 0;
 
         int64_t previousValue_ = 0;
         uint32_t previousValueLeadingZeros_ = 0x7fffffff;

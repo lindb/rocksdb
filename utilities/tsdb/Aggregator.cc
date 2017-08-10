@@ -3,7 +3,6 @@
 //
 
 #include <streambuf>
-#include <map>
 #include "Aggregator.h"
 #include "TSDB.h"
 
@@ -59,10 +58,9 @@ namespace LinDB {
         int64_t sum;
         int64_t *values = nullptr;
 
-        Histogram() {
-        }
+        Histogram() {}
 
-        ~Histogram() {
+        virtual ~Histogram() {
             if (nullptr != values) {
                 delete[] values;
             }
@@ -73,9 +71,7 @@ namespace LinDB {
     public:
         CounterAggregator() {}
 
-        virtual ~CounterAggregator() {
-
-        }
+        virtual ~CounterAggregator() {}
 
         Counter *createValue() override {
             return new Counter();
@@ -208,7 +204,9 @@ namespace LinDB {
     public:
         PayloadAggregator() {}
 
-        virtual ~PayloadAggregator() {}
+        virtual ~PayloadAggregator() {
+
+        }
 
         Payload *createValue() override {
             return new Payload();
@@ -243,7 +241,7 @@ namespace LinDB {
     public:
         HistogramAggregator() {}
 
-        ~HistogramAggregator() {}
+        virtual ~HistogramAggregator() {}
 
 
         void writeTo(rocksdb::TimeSeriesStreamWriter &writer, Histogram *value) override {

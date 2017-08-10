@@ -2,8 +2,6 @@
 // Created by jie.huang on 17/2/14.
 //
 
-#pragma once
-
 #include "GaugeMerger.h"
 #include "TimeSeriesStreamReader.h"
 #include "TimeSeriesStreamWriter.h"
@@ -26,11 +24,11 @@ namespace rocksdb {
                 int64_t old_time = existStream.getNextValue();
                 int64_t old_value = existStream.getNextValue();
                 int64_t new_time = newStream.getNextValue();
-                int64_t new_value = newStream.getNextValue();
+                int64_t new_value_value = newStream.getNextValue();
 
                 //put count/sum value into merge value
                 writer.append(old_slot, new_time >= old_time ? new_time : old_time);
-                writer.appendValue(new_time >= old_time ? new_value : old_value);
+                writer.appendValue(new_time >= old_time ? new_value_value : old_value);
                 //reset old/new slot for next loop
                 old_slot = existStream.getNextTimestamp();
                 new_slot = newStream.getNextTimestamp();

@@ -2,7 +2,6 @@
 // Created by yufu.deng on 17/3/3.
 //
 
-#pragma once
 
 #include "HistogramMerger.h"
 #include "TimeSeriesStreamReader.h"

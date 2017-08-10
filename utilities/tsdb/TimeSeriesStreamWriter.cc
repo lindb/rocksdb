@@ -88,8 +88,8 @@ namespace rocksdb {
         } else {
             addValueToBitString(1, 1);
 
-            int leadingZeros = __builtin_clzll(xorWithPrevious);
-            int trailingZeros = __builtin_ctzll(xorWithPrevious);
+            uint32_t leadingZeros = __builtin_clzll(xorWithPrevious);
+            uint32_t trailingZeros = __builtin_ctzll(xorWithPrevious);
 
             if (leadingZeros > TSDB::kMaxLeadingZerosLength) {
                 leadingZeros = TSDB::kMaxLeadingZerosLength;
