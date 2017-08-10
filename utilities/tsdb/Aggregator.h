@@ -32,14 +32,14 @@ namespace LinDB {
         uint8_t firstStats_ = 0;
         std::string firstResult_ = "";
         std::string resultSet_ = "";
-        std::map<int, AggType> values_;
+        std::map<int, AggType *> values_;
 
         virtual ~AggregatorImpl() {
             clear();
         }
 
         void clear() {
-            for (typename std::map<int, AggType>::iterator iter = values_.begin();
+            for (typename std::map<int, AggType *>::iterator iter = values_.begin();
                  iter != values_.end();) {
                 delete iter->second;
                 values_.erase(iter++);
@@ -61,7 +61,7 @@ namespace LinDB {
             }
 
             rocksdb::TimeSeriesStreamWriter writer(&resultSet_);
-            for (typename std::map<int, AggType>::iterator iter = values_.begin();
+            for (typename std::map<int, AggType *>::iterator iter = values_.begin();
                  iter != values_.end();) {
                 int slot = iter->first;
                 writer.appendTimestamp(slot);//slot
@@ -73,20 +73,20 @@ namespace LinDB {
             return resultSet_;
         }
 
-        AggType findOrCreate(int slot, typename std::map<int, AggType>::iterator &iter, bool &newValue) {
+        AggType *findOrCreate(int slot, typename std::map<int, AggType *>::iterator &iter, bool &newValue) {
             while (iter != values_.end()) {
                 if (iter->first == slot) {
                     newValue = false;
                     return iter->second;
                 } else if (iter->first > slot) {
-                    AggType value = createValue();
-                    values_.insert(typename std::map<int, AggType>::value_type(slot, value));
+                    AggType *value = createValue();
+                    values_.insert(typename std::map<int, AggType *>::value_type(slot, value));
                     return value;
                 }
                 iter++;
             }
-            AggType value = createValue();
-            values_.insert(typename std::map<int, AggType>::value_type(slot, value));
+            AggType *value = createValue();
+            values_.insert(typename std::map<int, AggType *>::value_type(slot, value));
             return value;
         }
 
@@ -106,20 +106,20 @@ namespace LinDB {
         virtual void merge(const char *value, const uint32_t value_size) {
             rocksdb::TimeSeriesStreamReader newStream(value, value_size);
             int32_t slot = newStream.getNextTimestamp();
-            typename std::map<int, AggType>::iterator histogramIterator = values_.begin();
+            typename std::map<int, AggType *>::iterator histogramIterator = values_.begin();
             while (slot != -1) {
                 bool newValue = true;
-                AggType value = findOrCreate(slot, histogramIterator, newValue);
-                merge(value, newStream, newValue);
+                AggType *oValue = findOrCreate(slot, histogramIterator, newValue);
+                merge(oValue, newStream, newValue);
                 slot = newStream.getNextTimestamp();
             }
         }
 
-        virtual AggType createValue()=0;
+        virtual AggType *createValue()=0;
 
-        virtual void writeTo(rocksdb::TimeSeriesStreamWriter &writer, AggType value)=0;
+        virtual void writeTo(rocksdb::TimeSeriesStreamWriter &writer, AggType *value)=0;
 
-        virtual void merge(AggType oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue)=0;
+        virtual void merge(AggType *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue)=0;
     };
 
     extern Aggregator *NewAggregatorImpl(char metric_type);

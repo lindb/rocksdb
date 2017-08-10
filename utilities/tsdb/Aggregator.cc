@@ -1,7 +1,6 @@
 //
 // Created by yufu.deng on 17/8/8.
 //
-#pragma once
 
 #include <streambuf>
 #include <map>
@@ -70,7 +69,7 @@ namespace LinDB {
         }
     };
 
-    class CounterAggregator : public AggregatorImpl<Counter *> {
+    class CounterAggregator : public AggregatorImpl<Counter> {
     public:
         CounterAggregator() {}
 
@@ -91,7 +90,7 @@ namespace LinDB {
         }
     };
 
-    class GaugeAggregator : public AggregatorImpl<Gauge *> {
+    class GaugeAggregator : public AggregatorImpl<Gauge> {
     public:
         GaugeAggregator() {}
 
@@ -116,7 +115,7 @@ namespace LinDB {
         }
     };
 
-    class TimerAggregator : public AggregatorImpl<Timer *> {
+    class TimerAggregator : public AggregatorImpl<Timer> {
     public:
         TimerAggregator() {}
 
@@ -134,10 +133,10 @@ namespace LinDB {
         }
 
         void merge(Timer *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
-            uint64_t min = newStream.getNextValue();
-            uint64_t max = newStream.getNextValue();
-            uint64_t count = newStream.getNextValue();
-            uint64_t sum = newStream.getNextValue();
+            int64_t min = newStream.getNextValue();
+            int64_t max = newStream.getNextValue();
+            int64_t count = newStream.getNextValue();
+            int64_t sum = newStream.getNextValue();
             if (newValue) {
                 oValue->min = min;
                 oValue->max = max;
@@ -150,7 +149,7 @@ namespace LinDB {
         }
     };
 
-    class RatioAggregator : public AggregatorImpl<Ratio *> {
+    class RatioAggregator : public AggregatorImpl<Ratio> {
     public:
         RatioAggregator() {}
 
@@ -176,7 +175,7 @@ namespace LinDB {
         }
     };
 
-    class ApdexAggregator : public AggregatorImpl<Apdex *> {
+    class ApdexAggregator : public AggregatorImpl<Apdex> {
     public:
         ApdexAggregator() {}
 
@@ -205,7 +204,7 @@ namespace LinDB {
         }
     };
 
-    class PayloadAggregator : public AggregatorImpl<Payload *> {
+    class PayloadAggregator : public AggregatorImpl<Payload> {
     public:
         PayloadAggregator() {}
 
@@ -223,10 +222,10 @@ namespace LinDB {
         }
 
         void merge(Payload *oValue, rocksdb::TimeSeriesStreamReader &newStream, bool newValue) override {
-            uint64_t min = newStream.getNextValue();
-            uint64_t max = newStream.getNextValue();
-            uint64_t count = newStream.getNextValue();
-            uint64_t sum = newStream.getNextValue();
+            int64_t min = newStream.getNextValue();
+            int64_t max = newStream.getNextValue();
+            int64_t count = newStream.getNextValue();
+            int64_t sum = newStream.getNextValue();
             if (newValue) {
                 oValue->min = min;
                 oValue->max = max;
@@ -239,7 +238,7 @@ namespace LinDB {
         }
     };
 
-    class HistogramAggregator : public AggregatorImpl<Histogram *> {
+    class HistogramAggregator : public AggregatorImpl<Histogram> {
 
     public:
         HistogramAggregator() {}
