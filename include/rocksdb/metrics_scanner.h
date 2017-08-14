@@ -4,6 +4,7 @@
 
 #ifndef ROCKSDB_METRICS_SCANNER_H
 #define ROCKSDB_METRICS_SCANNER_H
+
 #include "string"
 
 #include "rocksdb/options.h"
@@ -29,6 +30,7 @@ namespace rocksdb {
         bool enableLog = false;
         bool enableProfiler = false;
         char metric_type = 0;
+        uint32_t groupByLimit = 100;
         uint32_t metric = 0;
         int32_t start = 0;
         int32_t end = 0;
@@ -42,7 +44,9 @@ namespace rocksdb {
 
         virtual void next()  = 0;
 
-        virtual bool hasNextBaseTime(char nextBaseTime, ColumnFamilyHandle* columnFamilyHandle) = 0;
+        virtual void doSearch() = 0;
+
+        virtual bool hasNextBaseTime(char nextBaseTime, ColumnFamilyHandle *columnFamilyHandle) = 0;
 
         virtual bool hasNext() = 0;
 

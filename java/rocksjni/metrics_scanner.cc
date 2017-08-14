@@ -35,13 +35,24 @@ void Java_org_rocksdb_MetricsScanner_enableProfiler
 
 /*
  * Class:     org_rocksdb_MetricsScanner
- * Method:    start
+ * Method:    metricType
  * Signature: (JI)V
  */
 void Java_org_rocksdb_MetricsScanner_metricType
         (JNIEnv *env, jobject jobj, jlong handle, jbyte metricType) {
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->metric_type = metricType;
+}
+
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    groupByLimit
+ * Signature: (JI)V
+ */
+void Java_org_rocksdb_MetricsScanner_groupByLimit
+        (JNIEnv *env, jobject jobj, jlong handle, jint groupByLimit) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    scanner->groupByLimit = groupByLimit;
 }
 
 void Java_org_rocksdb_MetricsScanner_minTagValueLen
@@ -104,6 +115,19 @@ void Java_org_rocksdb_MetricsScanner_next
     auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
     scanner->next();
 }
+
+
+/*
+ * Class:     org_rocksdb_MetricsScanner
+ * Method:    doSearch
+ * Signature: (JI)V
+ */
+void Java_org_rocksdb_MetricsScanner_doSearch
+        (JNIEnv *env, jobject jobj, jlong handle) {
+    auto scanner = reinterpret_cast<rocksdb::MetricsScanner *>(handle);
+    scanner->doSearch();
+}
+
 
 /*
  * Class:     org_rocksdb_MetricsScanner

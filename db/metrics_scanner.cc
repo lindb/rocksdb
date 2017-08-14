@@ -27,7 +27,7 @@ namespace rocksdb {
         DB *db_;
         Env *env_;
         ReadOptions read_options_;
-        LinDB::Aggregator *aggregator_ = nullptr;
+        LinDB::Aggregators *aggregators_ = nullptr;
 
         std::string seekKey_ = "";
         uint32_t readMetric_ = 0;
@@ -86,8 +86,8 @@ namespace rocksdb {
             if (nullptr != curGroupByKey_) {
                 delete[] curGroupByKey_;
             }
-            if (nullptr != aggregator_) {
-                delete aggregator_;
+            if (nullptr != aggregators_) {
+                delete aggregators_;
             }
         }
 
@@ -165,8 +165,10 @@ namespace rocksdb {
             if (nullptr != iter_) {
                 delete iter_;
             }
-            if (nullptr == aggregator_) {
-                aggregator_ = LinDB::NewAggregatorImpl(metric_type);
+            if (nullptr == aggregators_) {
+                aggregators_ = LinDB::NewAggregatorsImpl(metric_type, hasGroup_, groupByLimit);
+            } else {
+                aggregators_->reset();
             }
             iter_ = db_->NewIterator(read_options_, columnFamilyHandle);
             seekKey_.clear();
@@ -194,7 +196,7 @@ namespace rocksdb {
                 }
                 if (currentBaseTime_ > end) {
                     //finish scan, because current base time > query end base time
-                    close_ = true;
+                    finish_ = true;
                     return false;
                 }
                 return true;
@@ -204,23 +206,49 @@ namespace rocksdb {
         }
 
         virtual bool hasNext() override {
-            return !finish_ && !close_;
+            if (nullptr == aggregators_) {
+                return false;
+            }
+            return aggregators_->hasNext();
+        }
+
+        virtual void doSearch() override {
+            if (nullptr == aggregators_) {
+                aggregators_ = LinDB::NewAggregatorsImpl(metric_type, hasGroup_, groupByLimit);
+            }
+            while (!finish_ && !close_) {
+                search_next();
+            }
+            aggregators_->flush();
         }
 
         virtual void next() override {
-            //reset scan context for new loop
-            aggregator_->clear();
+            if (nullptr == aggregators_) {
+                return;
+            }
+            if (hasGroup_) {
+                groupByResult_.clear();
+                groupByResult_ = aggregators_->getGroupBy();
+            }
             resultSet_.clear();
+            aggregators_->getResult(&resultSet_);
+        }
+
+        virtual void search_next() {
+            //reset scan context for new loop
+            LinDB::Aggregator *agg = nullptr;
+            bool tooManyGroupBy = false;
             if (close_ || pointCount <= 0 || metric <= 0) {
                 return;
             }
             if (!iter_->Valid()) {
-                close_ = true;
+                finish_ = true;
                 return;
             }
             finish_ = false;
+            clearGroupResult();
             DBOptions dbOptions = db_->GetDBOptions();
-            while (!finish_ && iter_->Valid()) {
+            while (!finish_ && iter_->Valid() && !close_) {
                 Slice key = iter_->key();
                 if (enableLog) {
                     Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "key : %s %d", key.ToString(true).data(),
@@ -233,10 +261,10 @@ namespace rocksdb {
                 uint8_t readBaseTime = (uint8_t) key[0];
                 key.remove_prefix(1);
 
-                if (readBaseTime > end) {
-                    close_ = true;
-                    break;
-                }
+//                if (readBaseTime > end) {
+//                    close_ = true;
+//                    break;
+//                }
 
                 if (readBaseTime != currentBaseTime_) {
                     finish_ = true;
@@ -327,7 +355,7 @@ namespace rocksdb {
                         if (enableLog) {
                             Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "group diff dump result");
                         }
-                        dumpAllResult();
+//                        dumpAllResult();
                         return;
                     }
                 }
@@ -345,7 +373,16 @@ namespace rocksdb {
                 if (enableProfiler) {
                     readValueSize_ += value.size();
                 }
-                aggregator_->addOrMerge(value.data(), (uint32_t) value.size());
+                if (!tooManyGroupBy) {
+                    if (nullptr == agg) {
+                        agg = aggregators_->getOrCreateAgg(getGroupResult());
+                    }
+                    if (nullptr == agg) {
+                        tooManyGroupBy = true;
+                    } else {
+                        agg->addOrMerge(value.data(), (uint32_t) value.size());
+                    }
+                }
                 //if current hour scan not finish, move to next row
                 if (!finish_) {
                     if (enableLog) {
@@ -360,7 +397,7 @@ namespace rocksdb {
             }
 
             if (aggCount_ > 0) {
-                dumpAllResult();
+//                dumpAllResult();
                 if (enableLog) {
                     Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "finish dump");
                 }
@@ -372,7 +409,6 @@ namespace rocksdb {
         }
 
         virtual Slice getResultSet() override {
-            resultSet_ = aggregator_->dumpResult();//here is keep the string, it is must
             return resultSet_;
         }
 
@@ -535,16 +571,36 @@ namespace rocksdb {
             }
         }
 
-        void dumpAllResult() {
+
+        std::string getGroupResult() {
+            std::string groupBy = "";
             if (hasGroup_) {
-                groupByResult_.clear();
                 for (uint32_t i = 0; i < groupByCount_; i++) {
-                    PutFixed32Value(&groupByResult_, saveGroupByKey_[i], 4);
+                    PutFixed32Value(&groupBy, saveGroupByKey_[i], 4);
+                }
+            }
+            return groupBy;
+        }
+
+        void clearGroupResult() {
+            if (hasGroup_) {
+                groupByResult_ = "";
+                for (uint32_t i = 0; i < groupByCount_; i++) {
                     saveGroupByKey_[i] = 0;
                 }
             }
-            aggCount_ = 0;
         }
+
+//        void dumpAllResult() {
+//            if (hasGroup_) {
+//                groupByResult_.clear();
+//                for (uint32_t i = 0; i < groupByCount_; i++) {
+//                    PutFixed32Value(&groupByResult_, saveGroupByKey_[i], 4);
+//                    saveGroupByKey_[i] = 0;
+//                }
+//            }
+//            aggCount_ = 0;
+//        }
 
         /**
         *  find smallest value index in tag values, which >= tag value

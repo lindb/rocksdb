@@ -311,29 +311,82 @@ namespace LinDB {
 
         void clear() override {}
 
-        std::string dumpResult() override {
-            return "";
+        bool hasResult() override {
+            return false;
         }
+
+        void getResult(std::string *resultSet_) override {}
 
         void addOrMerge(const char *value, const uint32_t value_size) override {}
     };
 
-    Aggregator *NewAggregatorImpl(char metric_type) {
-        if (metric_type == rocksdb::TSDB::METRIC_TYPE_COUNTER) {
-            return new CounterAggregator();
-        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_GAUGE) {
-            return new GaugeAggregator();
-        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_RATIO) {
-            return new RatioAggregator();
-        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_TIMER) {
-            return new TimerAggregator();
-        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_APDEX) {
-            return new ApdexAggregator();
-        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_PAYLOAD) {
-            return new PayloadAggregator();
-        } else if (metric_type == rocksdb::TSDB::METRIC_TYPE_HISTOGRAM) {
-            return new HistogramAggregator();
+    class AggregatorsImpl : public Aggregators {
+    public:
+
+        AggregatorsImpl(char metric_type, bool hasGroup, uint32_t groupByLimit) : Aggregators(metric_type,
+                                                                                              hasGroup,
+                                                                                              groupByLimit) {}
+
+        void reset() override {
+            if (!hasGroup_) {
+                if (nullptr != aggregator_) {
+                    aggregator_->clear();
+                }
+                return;
+            }
+            if (nullptr != aggregatorsIterator_) {
+                delete aggregatorsIterator_;
+                aggregatorsIterator_ = nullptr;
+            }
+            for (std::map<std::string, LinDB::Aggregator *>::iterator iter = aggregators_.begin();
+                 iter != aggregators_.end();) {
+                iter->second->clear();
+                iter++;
+            }
         }
-        return new EmptyAggregator();
+
+        Aggregator *getOrCreateAgg(std::string groupBy) override {
+            if (!hasGroup_) {
+                if (nullptr == aggregator_) {
+                    aggregator_ = newAggregatorImpl();
+                }
+                return aggregator_;
+            }
+            std::map<std::string, LinDB::Aggregator *>::iterator iter = aggregators_.find(groupBy);
+            if (iter != aggregators_.end()) {
+                return iter->second;
+            }
+            if (aggregators_.size() >= groupByLimit_) {
+                return nullptr;
+            }
+            LinDB::Aggregator *agg = newAggregatorImpl();
+            aggregators_.insert(typename std::map<std::string, Aggregator *>::value_type(groupBy, agg));
+            return agg;
+        }
+
+    protected:
+        Aggregator *newAggregatorImpl() override {
+            if (metric_type_ == rocksdb::TSDB::METRIC_TYPE_COUNTER) {
+                return new CounterAggregator();
+            } else if (metric_type_ == rocksdb::TSDB::METRIC_TYPE_GAUGE) {
+                return new GaugeAggregator();
+            } else if (metric_type_ == rocksdb::TSDB::METRIC_TYPE_RATIO) {
+                return new RatioAggregator();
+            } else if (metric_type_ == rocksdb::TSDB::METRIC_TYPE_TIMER) {
+                return new TimerAggregator();
+            } else if (metric_type_ == rocksdb::TSDB::METRIC_TYPE_APDEX) {
+                return new ApdexAggregator();
+            } else if (metric_type_ == rocksdb::TSDB::METRIC_TYPE_PAYLOAD) {
+                return new PayloadAggregator();
+            } else if (metric_type_ == rocksdb::TSDB::METRIC_TYPE_HISTOGRAM) {
+                return new HistogramAggregator();
+            }
+            return new EmptyAggregator();
+        }
+    };
+
+    Aggregators *NewAggregatorsImpl(char metric_type, bool hasGroup, uint32_t groupByLimit) {
+        return new AggregatorsImpl(metric_type, hasGroup, groupByLimit);
     }
+
 }

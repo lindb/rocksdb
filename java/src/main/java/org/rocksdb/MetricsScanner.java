@@ -27,6 +27,13 @@ public class MetricsScanner extends RocksObject {
         metricType(nativeHandle_, metricType);
     }
 
+    public void setGroupByLimit(int groupByLimit) throws RocksDBException {
+        if (groupByLimit < 0) {
+            throw new RocksDBException("group by limit cannot be minus.");
+        }
+        groupByLimit(nativeHandle_, groupByLimit);
+    }
+
     public void setMetric(int metric) throws RocksDBException {
         if (metric == -1) {
             throw new RocksDBException("Metric cannot be empty.");
@@ -71,6 +78,10 @@ public class MetricsScanner extends RocksObject {
 
     public void next() {
         next(nativeHandle_);
+    }
+
+    public void doSearch() {
+        doSearch(nativeHandle_);
     }
 
     public boolean hasNextBaseTime(byte baseTime, ColumnFamilyHandle familyHandle) {
@@ -118,6 +129,8 @@ public class MetricsScanner extends RocksObject {
 
     private native void metricType(long handle, byte metricType);
 
+    private native void groupByLimit(long handle, int groupByLimit);
+
     private native void minTagValueLen(long handle, byte minTagValueLen);
 
     private native void start(long handle, int start);
@@ -125,6 +138,8 @@ public class MetricsScanner extends RocksObject {
     private native void end(long handle, int end);
 
     private native void next(long handle);
+
+    private native void doSearch(long handle);
 
     private native boolean hasNextBaseTime(long handle, byte baseTime, long columnFamilyHandle);
 
