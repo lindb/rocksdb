@@ -316,7 +316,7 @@ namespace rocksdb {
                     if (enableProfiler) {
                         skipCount_++;
                     }
-                    bool flag = skip();
+                    bool flag = tail();
                     if (!flag && !finish_) {
                         //if no skip, move to next row
                         iter_->Next();
@@ -379,6 +379,9 @@ namespace rocksdb {
                     }
                     if (nullptr == agg) {
                         tooManyGroupBy = true;
+                        if (enableLog) {
+                            Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "too many group to read");
+                        }
                     } else {
                         agg->addOrMerge(value.data(), (uint32_t) value.size());
                     }
@@ -443,6 +446,23 @@ namespace rocksdb {
                 groupFoundCount_++;
                 groupPos_++;
             }
+        }
+
+
+        bool tail() {
+            if (nullptr == iter_ || seekKey_.size() <= 0) {
+                return false;
+            }
+            iter_->Next();
+            while (!finish_ && iter_->Valid() && !close_) {
+                if (iter_->key().compare(seekKey_) >= 0) {
+                    seekKey_.clear();
+                    return true;
+                }
+                iter_->Next();
+            }
+            finish_ = true;
+            return true;
         }
 
         bool skip() {
