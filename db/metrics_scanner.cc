@@ -453,6 +453,11 @@ namespace rocksdb {
             if (nullptr == iter_ || seekKey_.size() <= 0) {
                 return false;
             }
+            if (enableLog) {
+                DBOptions dbOptions = db_->GetDBOptions();
+                Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "do tail key : %s",
+                    Slice(seekKey_).ToString(true).data());
+            }
             iter_->Next();
             while (!finish_ && iter_->Valid() && !close_) {
                 if (iter_->key().compare(seekKey_) >= 0) {
@@ -556,7 +561,13 @@ namespace rocksdb {
                 } else {
                     //filter tag value smaller than first tag value, no data match, finish current next,
                     //maybe have next base time
-                    finish_ = true;
+//                    finish_ = true;
+                    //filter tag value smaller than first tag value, no data match, next maxTagValueLen
+                    seekKey_.clear();
+                    seekKey_.append(1, (char) currentBaseTime_);
+                    seekKey_.append(1, metric_type);
+                    PutVarint32(&seekKey_, metric);
+                    seekKey_.append(1, maxTagValueLen + 1);
                     return true;
                 }
             }
