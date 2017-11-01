@@ -6,6 +6,7 @@
 #include "HistogramMerger.h"
 #include "TimeSeriesStreamReader.h"
 #include "TimeSeriesStreamWriter.h"
+#include "iostream"
 
 namespace rocksdb {
     void HistogramMerger::merge(
@@ -19,8 +20,10 @@ namespace rocksdb {
         TimeSeriesStreamWriter writer(new_value);
 
         int32_t old_slot = existStream.getNextTimestamp(), new_slot = newStream.getNextTimestamp();
-
+        int whileCount = 0;
+        int64_t final_max_slot = 100;
         while (old_slot != -1 || new_slot != -1) {
+            whileCount += 1;
             if (old_slot == new_slot && old_slot != -1) {
                 //put count/sum value into merge value
                 writer.appendTimestamp(old_slot);//slot
@@ -29,6 +32,12 @@ namespace rocksdb {
                 writer.appendValue(old_type);//type
                 writer.appendValue(old_base_number);//base number
                 int64_t max_slot = old_max_slot > new_max_slot ? old_max_slot : new_max_slot;
+                if (old_max_slot > 100) {
+                    std::cout << "1 histogram old max slot is : " << max_slot << std::endl;
+                } else if (new_max_slot > 100) {
+                    std::cout << "1 histogram new max slot is : " << max_slot << std::endl;
+                }
+                max_slot = final_max_slot;
                 if (old_type != new_type || old_base_number != new_base_number) {
                     writer.appendValue(old_max_slot);//max value slot
                     writer.appendValue(existStream.getNextValue());//min
@@ -75,6 +84,10 @@ namespace rocksdb {
                 writer.appendValue(existStream.getNextValue());//type
                 writer.appendValue(existStream.getNextValue());//baseNumber
                 int64_t max_slot = existStream.getNextValue();
+                if (max_slot > 100) {
+                    std::cout << "2 histogram max slot is : " << max_slot << std::endl;
+                }
+                max_slot = final_max_slot;
                 writer.appendValue(max_slot);//max value slot
                 writer.appendValue(existStream.getNextValue());//min
                 writer.appendValue(existStream.getNextValue());//max
@@ -90,6 +103,10 @@ namespace rocksdb {
                 writer.appendValue(newStream.getNextValue());//type
                 writer.appendValue(newStream.getNextValue());//baseNumber
                 int64_t max_slot = newStream.getNextValue();
+                if (max_slot > 100) {
+                    std::cout << "3 histogram max slot is : " << max_slot << std::endl;
+                }
+                max_slot = final_max_slot;
                 writer.appendValue(max_slot);//max value slot
                 writer.appendValue(newStream.getNextValue());//min
                 writer.appendValue(newStream.getNextValue());//max
@@ -101,6 +118,11 @@ namespace rocksdb {
                 //reset new slot for next loop
                 new_slot = newStream.getNextTimestamp();
             }
+        }
+        if (whileCount > 60 || old_slot > 60 || new_slot > 60) {
+            std::cout << "histogram  old solt or new slot gt 60 is old slot: " << old_slot << "  new slot:" << new_slot
+                      << "while count : " << whileCount
+                      << std::endl;
         }
         writer.flush();
     }

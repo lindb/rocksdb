@@ -146,7 +146,7 @@ namespace rocksdb {
                 uint32_t groupByTag = 0;
                 GetVarint32(&target, &groupByTag);
                 groupBy_[i] = groupByTag;
-                saveGroupByKey_[i] = 0;
+                saveGroupByKey_[i] = -1;
                 curGroupByKey_[i] = 0;
             }
         }
@@ -251,7 +251,8 @@ namespace rocksdb {
             while (!finish_ && iter_->Valid() && !close_) {
                 Slice key = iter_->key();
                 if (enableLog) {
-                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "key : %s %d", key.ToString(true).data(),
+                    Log(InfoLogLevel::ERROR_LEVEL, dbOptions.info_log, "key : %s  currentBaseTime: %d",
+                        key.ToString(true).data(),
                         currentBaseTime_);
                 }
                 if (enableProfiler) {
@@ -438,9 +439,9 @@ namespace rocksdb {
             }
             if (tagName == groupBy_[groupPos_]) {
                 curGroupByKey_[groupPos_] = tagValue;
-                if (saveGroupByKey_[groupPos_] != 0 && saveGroupByKey_[groupPos_] != tagValue) {
+                if (saveGroupByKey_[groupPos_] != -1 && saveGroupByKey_[groupPos_] != tagValue) {
                     groupDiff_ = true;
-                } else if (saveGroupByKey_[groupPos_] == 0) {
+                } else if (saveGroupByKey_[groupPos_] == -1) {
                     saveGroupByKey_[groupPos_] = tagValue;
                 }
                 groupFoundCount_++;
@@ -532,6 +533,7 @@ namespace rocksdb {
                             if (upperIndex < tagFilter.count - 1) {
                                 backTrackName = tagName;
                                 backTrackValue = tagFilter.tagValues[upperIndex + 1];
+                                backTrackPos = pos;
                             }
                             //compare next tag filter
                             continue;
@@ -617,7 +619,7 @@ namespace rocksdb {
             if (hasGroup_) {
                 groupByResult_ = "";
                 for (uint32_t i = 0; i < groupByCount_; i++) {
-                    saveGroupByKey_[i] = 0;
+                    saveGroupByKey_[i] = -1;
                 }
             }
         }

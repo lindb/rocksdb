@@ -80,7 +80,7 @@ namespace rocksdb {
       *    finally the XORred value is stored.
       */
     void TimeSeriesStreamWriter::appendValue(int64_t value) {
-        int64_t xorWithPrevious = previousValue_ ^value;
+        uint64_t xorWithPrevious = previousValue_ ^value;
 
         if (xorWithPrevious == 0) {
             addValueToBitString(0, 1);

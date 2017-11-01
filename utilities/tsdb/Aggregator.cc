@@ -5,6 +5,7 @@
 #include <streambuf>
 #include "Aggregator.h"
 #include "TSDB.h"
+#include "iostream"
 
 namespace LinDB {
     class Counter {
@@ -252,6 +253,10 @@ namespace LinDB {
             writer.appendValue(value->max);//max
             writer.appendValue(value->count);//count
             writer.appendValue(value->sum);//sum
+            if (value->maxSlot > 100) {
+                std::cout << "search histogram write data max slot is : " << value->maxSlot << std::endl;
+                value->maxSlot = 100;
+            }
             for (int64_t i = 0; i < value->maxSlot; ++i) {// values_
                 writer.appendValue(value->values[i]);
             }
@@ -265,6 +270,10 @@ namespace LinDB {
             int64_t type = newStream.getNextValue();//type
             int64_t baseNumber = newStream.getNextValue();//baseNumber
             int64_t max_slot = newStream.getNextValue();//maxSlot
+            if (max_slot > 100) {
+                std::cout << "search histogram merge max slot is : " << max_slot << std::endl;
+                max_slot = 100;
+            }
             int64_t min = newStream.getNextValue();//min
             int64_t max = newStream.getNextValue();//max
             int64_t count = newStream.getNextValue();//count
